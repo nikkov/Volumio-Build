@@ -27,7 +27,8 @@ Switches:
   -d        Create Image for Specific Devices. Supported device names:
               pi, udooneo, udooqdl, cuboxi, cubietruck, compulab,
               odroidc1, odroidc2, odroidxu4, sparky, bbb, pine64,
-              bpim2u, bpipro, tinkerboard, sopine64, rock64, voltastream0
+              bpim2u, bpipro, tinkerboard, sopine64, rock64, voltastream0,
+              nanopineo2
   -v <vers> Version must be a dot separated number. Example 1.102 .
 
   -l <repo> Create docker layer. Give a Docker Repository name as the argument.
@@ -144,8 +145,13 @@ if [ -n "$BUILD" ]; then
   mkdir "build/$BUILD/root"
   multistrap -a "$ARCH" -f "$CONF"
   if [ ! "$BUILD" = x86 ]; then
-    echo "Build for arm/armv7/armv8 platform, copying qemu"
-    cp /usr/bin/qemu-arm-static "build/$BUILD/root/usr/bin/"
+    if [ "$BUILD" = armv8 ]; then
+      echo "Build for armv8 platform, copying qemu"
+      cp /usr/bin/qemu-aarch64-static "build/$BUILD/root/usr/bin/"
+    else
+      echo "Build for arm/armv7 platform, copying qemu"
+      cp /usr/bin/qemu-arm-static "build/$BUILD/root/usr/bin/"
+    fi  
   fi
   cp scripts/volumioconfig.sh "build/$BUILD/root"
 
@@ -290,6 +296,10 @@ case "$DEVICE" in
   x86) echo 'Writing x86 Image File'
     check_os_release "x86" "$VERSION" "$DEVICE"
     sh scripts/x86image.sh -v "$VERSION" -p "$PATCH";
+    ;;
+  nanopineo2) echo 'Writing NanoPi-NEO2 Image File'
+    check_os_release "armv8" "$VERSION" "$DEVICE"
+    sh scripts/nanopineo2image.sh -v "$VERSION" -p "$PATCH" -a armv8
     ;;
 esac
 

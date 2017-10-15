@@ -273,6 +273,151 @@ wpa_passphrase=volumio2" >> /etc/hostapd/hostapd-edimax.conf
   echo "Cleanup"
   apt-get clean
   rm -rf tmp/*
+elif [ $(uname -m) = aarch64 ]; then
+# Begin of ARMV8 area. WARNING! Work In Progress!
+  echo "Arm64 Environment detected"
+
+  echo "Installing ARM64 Node Environment"
+  wget https://nodejs.org/download/release/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz
+  tar xf node-v${NODE_VERSION}-linux-arm64.tar.xz
+  rm /node-v${NODE_VERSION}-linux-arm64.tar.xz
+  cd /node-v${NODE_VERSION}-linux-arm64
+  cp -rp bin/ include/ lib/ share/ /
+  cd /
+  rm -rf /node-v${NODE_VERSION}-linux-arm64
+
+  # Symlinking to legacy paths
+  ln -s /bin/node /usr/local/bin/node
+  ln -s /bin/npm /usr/local/bin/npm
+
+  echo "Installing Volumio Modules"
+  cd /volumio
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/node_modules/node_modules_armv8-${NODE_VERSION}.tar.gz
+  tar xf node_modules_armv8-${NODE_VERSION}.tar.gz
+  rm node_modules_armv8-${NODE_VERSION}.tar.gz
+
+  echo "Setting proper ownership"
+  chown -R volumio:volumio /volumio
+
+  echo "Creating Data Path"
+  mkdir /data
+  chown -R volumio:volumio /data
+
+  echo "Creating ImgPart Path"
+  mkdir /imgpart
+  chown -R volumio:volumio /imgpart
+
+  echo "Changing os-release permissions"
+  chown volumio:volumio /etc/os-release
+  chmod 777 /etc/os-release
+
+  echo "Installing Custom Packages"
+  cd /
+
+  ARCH=$(cat /etc/os-release | grep ^VOLUMIO_ARCH | tr -d 'VOLUMIO_ARCH="')
+  echo $ARCH
+  echo "Installing custom MPD depending on system architecture"
+
+  # Disabled yet
+if [ 1 = 2 ]; then
+  wget http://repo.volumio.org/Volumio2/Binaries/libasound2/armv7/libasound2_1.1.3-5_armhf.deb
+  wget http://repo.volumio.org/Volumio2/Binaries/libasound2/armv7/libasound2-data_1.1.3-5_all.deb
+  dpkg --force-all -i libasound2-data_1.1.3-5_all.deb
+  dpkg --force-all -i libasound2_1.1.3-5_armhf.deb
+  rm libasound2-data_1.1.3-5_all.deb
+  rm libasound2_1.1.3-5_armhf.deb
+fi
+  # TD because build/armv8/root/etc/apt/sources.list.d/* is empty we can't install packets from debian repo
+  echo "deb http://ftp.nl.debian.org/debian jessie main contrib non-free" > /etc/apt/sources.list.d/custom_source.list
+  apt-get update
+
+  cd /tmp/
+  echo "Download custom packets debian-jessie for armv8"
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/debian-jessie/libadplug-2.2.1-0_2.2.1%2Bdfsg3-0.1ubuntu1_arm64.deb
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/debian-jessie/libao4_1.1.0-3_arm64.deb
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/debian-jessie/libbinio1ldbl_1.4%2Bdfsg1-4_arm64.deb
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/debian-jessie/libupnp6_1.6.20.jfd5-1_arm64.deb
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/debian-jessie/libupnpp4_0.16.0-1%7Eppa1%7Eunstable_arm64.deb
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/debian-jessie/mpd_0.20.6-jfd1_arm64.deb
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/debian-jessie/upmpdcli_1.2.15-2%7Eppa1%7Eunstable_arm64.deb
+
+  echo "Installing upmpdcli for armv8"
+  dpkg --force-all -i libupnp6_1.6.20.jfd5-1_arm64.deb
+  dpkg --force-all -i libupnpp4_0.16.0-1~ppa1~unstable_arm64.deb
+  dpkg --force-all -i upmpdcli_1.2.15-2~ppa1~unstable_arm64.deb
+
+  echo "Installing libadplug for armv8"
+  dpkg --force-all -i libbinio1ldbl_1.4+dfsg1-4_arm64.deb
+  dpkg --force-all -i libadplug-2.2.1-0_2.2.1+dfsg3-0.1ubuntu1_arm64.deb
+
+  echo "Installing MPD for armv8"
+  dpkg --force-all -i mpd_0.20.6-jfd1_arm64.deb
+
+  apt-get -f -y install
+
+  rm /etc/apt/sources.list.d/custom_source.list
+
+  # Disabled yet
+if [ 1 = 2 ]; then
+  echo "Adding volumio-remote-updater for armv7"
+  wget http://repo.volumio.org/Volumio2/Binaries/arm/volumio-remote-updater_1.2-armv7.deb
+  dpkg -i volumio-remote-updater_1.2-armv7.deb
+  rm volumio-remote-updater_1.2-armv7.deb
+fi
+  #Remove autostart of upmpdcli
+  update-rc.d upmpdcli remove
+
+  # No binary for arm8 disabled yet
+if [ 1 = 2 ]; then
+  echo "Installing Shairport-Sync"
+  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-metadata-reader-arm.tar.gz
+  tar xf shairport-sync-metadata-reader-arm.tar.gz
+  rm /shairport-sync-metadata-reader-arm.tar.gz
+
+  echo "Installing Shairport-Sync Metadata Reader"
+  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-3.0.2-arm.tar.gz
+  tar xf shairport-sync-3.0.2-arm.tar.gz
+  rm /shairport-sync-3.0.2-arm.tar.gz
+fi
+  # No binary for arm8 disabled yet
+if [ 1 = 2 ]; then
+  echo "Volumio Init Updater"
+  wget http://repo.volumio.org/Volumio2/Binaries/arm/volumio-init-updater-v2 -O /usr/local/sbin/volumio-init-updater
+  chmod a+x /usr/local/sbin/volumio-init-updater
+fi
+  # No binary for arm8 disabled yet
+if [ 1 = 2 ]; then
+  echo "Installing Snapcast for multiroom"
+  wget http://repo.volumio.org/Volumio2/Binaries/arm/snapserver -P /usr/sbin/
+  wget http://repo.volumio.org/Volumio2/Binaries/arm/snapclient -P  /usr/sbin/
+  chmod a+x /usr/sbin/snapserver
+  chmod a+x /usr/sbin/snapclient
+
+  echo "Zsync"
+  rm /usr/bin/zsync
+  wget http://repo.volumio.org/Volumio2/Binaries/arm/zsync -P /usr/bin/
+  chmod a+x /usr/bin/zsync
+
+  echo "Adding special version for edimax dongle"
+  wget http://repo.volumio.org/Volumio2/Binaries/arm/hostapd-edimax -P /usr/sbin/
+  chmod a+x /usr/sbin/hostapd-edimax
+
+  echo "interface=wlan0
+ssid=Volumio
+channel=4
+driver=rtl871xdrv
+hw_mode=g
+auth_algs=1
+wpa=2
+wpa_key_mgmt=WPA-PSK
+rsn_pairwise=CCMP
+wpa_passphrase=volumio2" >> /etc/hostapd/hostapd-edimax.conf
+  chmod -R 777 /etc/hostapd-edimax.conf
+fi
+  echo "Cleanup"
+  apt-get clean
+  rm -rf tmp/*
+# end of ARMV8 area
 elif [ $(uname -m) = i686 ] || [ $(uname -m) = x86 ] || [ $(uname -m) = x86_64 ]  ; then
   echo 'X86 Environment Detected'
 
