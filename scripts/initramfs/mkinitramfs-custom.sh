@@ -364,6 +364,8 @@ if [ ${DPKG_ARCH} = "armhf" ]; then
 	LIB_GNUE="/lib/arm-linux-gnueabihf"
 elif [ ${DPKG_ARCH} = "i386" ]; then
 	LIB_GNUE="/lib/i386-linux-gnu"
+elif [ ${DPKG_ARCH} = "arm64" ]; then
+	LIB_GNUE="/lib/aarch64-linux-gnu"
 fi 
 
 DESTDIR=${DESTDIR_REAL}
