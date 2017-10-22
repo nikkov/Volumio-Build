@@ -318,15 +318,13 @@ elif [ $(uname -m) = aarch64 ]; then
   echo $ARCH
   echo "Installing custom MPD depending on system architecture"
 
-  # Disabled yet
-if [ 1 = 2 ]; then
-  wget http://repo.volumio.org/Volumio2/Binaries/libasound2/armv7/libasound2_1.1.3-5_armhf.deb
-  wget http://repo.volumio.org/Volumio2/Binaries/libasound2/armv7/libasound2-data_1.1.3-5_all.deb
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/debian-jessie/libasound2_1.1.3-5_arm64.deb
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/debian-jessie/libasound2-data_1.1.3-5_all.deb
   dpkg --force-all -i libasound2-data_1.1.3-5_all.deb
-  dpkg --force-all -i libasound2_1.1.3-5_armhf.deb
+  dpkg --force-all -i libasound2_1.1.3-5_arm64.deb
   rm libasound2-data_1.1.3-5_all.deb
-  rm libasound2_1.1.3-5_armhf.deb
-fi
+  rm libasound2_1.1.3-5_arm64.deb
+
   # TD because build/armv8/root/etc/apt/sources.list.d/* is empty we can't install packets from debian repo
   echo "deb http://ftp.nl.debian.org/debian jessie main contrib non-free" > /etc/apt/sources.list.d/custom_source.list
   apt-get update
@@ -367,32 +365,30 @@ fi
   #Remove autostart of upmpdcli
   update-rc.d upmpdcli remove
 
-  # No binary for arm8 disabled yet
-if [ 1 = 2 ]; then
   echo "Installing Shairport-Sync"
-  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-metadata-reader-arm.tar.gz
-  tar xf shairport-sync-metadata-reader-arm.tar.gz
-  rm /shairport-sync-metadata-reader-arm.tar.gz
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/binaries/shairport-sync-metadata-reader-armv8.tar.gz
+  tar xf shairport-sync-metadata-reader-armv8.tar.gz
+  rm /shairport-sync-metadata-reader-armv8.tar.gz
 
   echo "Installing Shairport-Sync Metadata Reader"
-  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-3.0.2-arm.tar.gz
-  tar xf shairport-sync-3.0.2-arm.tar.gz
-  rm /shairport-sync-3.0.2-arm.tar.gz
-fi
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/binaries/shairport-sync-3.0.2-armv8.tar.gz
+  tar xf shairport-sync-3.0.2-armv8.tar.gz
+  rm /shairport-sync-3.0.2-armv8.tar.gz
+
   # No binary for arm8 disabled yet
 if [ 1 = 2 ]; then
   echo "Volumio Init Updater"
   wget http://repo.volumio.org/Volumio2/Binaries/arm/volumio-init-updater-v2 -O /usr/local/sbin/volumio-init-updater
   chmod a+x /usr/local/sbin/volumio-init-updater
 fi
-  # No binary for arm8 disabled yet
-if [ 1 = 2 ]; then
   echo "Installing Snapcast for multiroom"
-  wget http://repo.volumio.org/Volumio2/Binaries/arm/snapserver -P /usr/sbin/
-  wget http://repo.volumio.org/Volumio2/Binaries/arm/snapclient -P  /usr/sbin/
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/binaries/snapserver -P /usr/sbin/
+  wget https://github.com/nikkov/nanopineo2-binary/raw/master/binaries/snapclient -P  /usr/sbin/
   chmod a+x /usr/sbin/snapserver
   chmod a+x /usr/sbin/snapclient
 
+  # No binary for arm8 disabled yet
+if [ 1 = 2 ]; then
   echo "Zsync"
   rm /usr/bin/zsync
   wget http://repo.volumio.org/Volumio2/Binaries/arm/zsync -P /usr/bin/
