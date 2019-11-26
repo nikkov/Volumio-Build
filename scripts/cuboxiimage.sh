@@ -65,7 +65,7 @@ then
     # if you really want to re-clone from the repo, then delete the platforms-cuboxi folder
 else
 	echo "Clone all cubox files from repo"
-	git clone https://github.com/volumio/platform-cuboxi.git platform-cuboxi
+	git clone --depth 1 https://github.com/volumio/platform-cuboxi.git platform-cuboxi
 	echo "Unpack the cubox platform files"
     cd platform-cuboxi
 	tar xfJ cuboxi.tar.xz
@@ -104,11 +104,10 @@ mount -t vfat "${BOOT_PART}" /mnt/volumio/rootfs/boot
 
 echo "Copying Volumio RootFs"
 cp -pdR build/$ARCH/root/* /mnt/volumio/rootfs
-echo "Copying cuboxi boot files, Kernel, Modules and Firmware"
-cp platform-cuboxi/cuboxi/boot/* /mnt/volumio/rootfs/boot
+echo "Copying cuboxi boot files, Kernel, Modules and Headerfiles"
+cp -R platform-cuboxi/cuboxi/boot/* /mnt/volumio/rootfs/boot
 cp -pdR platform-cuboxi/cuboxi/lib/modules /mnt/volumio/rootfs/lib
-cp -pdR platform-cuboxi/cuboxi/lib/firmware /mnt/volumio/rootfs/lib
-tar cfJ /mnt/volumio/rootfs/usr/linux-headers.tar.xz platform-cuboxi/cuboxi/usr/include 
+cp platform-cuboxi/cuboxi/usr/src/* /mnt/volumio/rootfs/usr/src
 
 cp platform-cuboxi/cuboxi/nvram-fw/brcmfmac4329-sdio.txt /mnt/volumio/rootfs/lib/firmware/brcm/
 cp platform-cuboxi/cuboxi/nvram-fw/brcmfmac4330-sdio.txt /mnt/volumio/rootfs/lib/firmware/brcm/
@@ -132,11 +131,33 @@ wget -P /mnt/volumio/rootfs/root http://repo.volumio.org/Volumio2/Binaries/volum
 mount /dev /mnt/volumio/rootfs/dev -o bind
 mount /proc /mnt/volumio/rootfs/proc -t proc
 mount /sys /mnt/volumio/rootfs/sys -t sysfs
+
 echo $PATCH > /mnt/volumio/rootfs/patch
+
+if [ -f "/mnt/volumio/rootfs/$PATCH/patch.sh" ] && [ -f "config.js" ]; then
+        if [ -f "UIVARIANT" ] && [ -f "variant.js" ]; then
+                UIVARIANT=$(cat "UIVARIANT")
+                echo "Configuring variant $UIVARIANT"
+                echo "Starting config.js for variant $UIVARIANT"
+                node config.js $PATCH $UIVARIANT
+                echo $UIVARIANT > /mnt/volumio/rootfs/UIVARIANT
+        else
+                echo "Starting config.js"
+                node config.js $PATCH
+        fi
+fi
+
 chroot /mnt/volumio/rootfs /bin/bash -x <<'EOF'
 su -
 /cuboxiconfig.sh
 EOF
+
+UIVARIANT_FILE=/mnt/volumio/rootfs/UIVARIANT
+if [ -f "${UIVARIANT_FILE}" ]; then
+    echo "Starting variant.js"
+    node variant.js
+    rm $UIVARIANT_FILE
+fi
 
 #cleanup
 rm /mnt/volumio/rootfs/cuboxiconfig.sh /mnt/volumio/rootfs/root/init
@@ -152,6 +173,9 @@ echo "==> cuboxi device installed"
 #echo "(you can keep it safely as long as you're sure of no changes)"
 #sudo rm -r platforms-cuboxi
 sync
+
+echo "Finalizing Rootfs creation"
+sh scripts/finalize.sh
 
 echo "Preparing rootfs base for SquashFS"
 
@@ -195,3 +219,5 @@ umount -l /mnt/volumio/rootfs/boot
 dmsetup remove_all
 losetup -d ${LOOP_DEV}
 sync
+
+md5sum "$IMG_FILE" > "${IMG_FILE}.md5"

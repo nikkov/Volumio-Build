@@ -26,6 +26,11 @@ tmpfs   /dev/shm                tmpfs   defaults,nosuid,noexec,nodev        0 0
 #echo "Blacklisting 8723bs_vq0"
 #echo "blacklist 8723bs_vq0" >> /etc/modprobe.d/blacklist-nanopineo2.conf
 
+echo "USB Card Ordering"
+echo "# USB DACs will have device number 5 in whole Volumio device range
+options snd-usb-audio index=5" >> /etc/modprobe.d/alsa-base.conf
+
+
 echo "Installing additonal packages"
 apt-get update
 apt-get -y install network-manager u-boot-tools liblircclient0 lirc
@@ -38,6 +43,7 @@ echo "Adding custom modules overlay, squashfs and nls_cp437"
 echo "overlay" >> /etc/initramfs-tools/modules
 echo "squashfs" >> /etc/initramfs-tools/modules
 echo "nls_cp437" >> /etc/initramfs-tools/modules
+echo "fuse" >> /etc/initramfs-tools/modules
 
 echo "Copying volumio initramfs updater"
 cd /root/

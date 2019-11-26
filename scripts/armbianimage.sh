@@ -26,6 +26,9 @@ BRANCH=$3
 set +f
 IFS="$old"
 
+echo "We're sorry, due to various failure reports and currently missing community support, Armbian builds had to be suspended"
+exit 1
+
 echo BOARD:$BOARD BRANCH:$BRANCH
 
 BUILDDATE=$(date -I)
@@ -139,6 +142,9 @@ echo "==> BPI-PRO device installed"
 #echo "(you can keep it safely as long as you're sure of no changes)"
 #rm -r platform-bananapi
 sync
+
+echo "Finalizing Rootfs creation"
+sh scripts/finalize.sh
 
 echo "Preparing rootfs base for SquashFS"
 

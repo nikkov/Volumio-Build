@@ -63,7 +63,7 @@ then
     # that will refresh all the asus platforms, see below
 else
 	echo "Clone asus files from repo"
-	git clone https://github.com/volumio/platform-asus.git platform-asus
+	git clone --depth 1 https://github.com/volumio/platform-asus.git platform-asus
 	echo "Unpack the Tinkerboard platform files"
 	cd platform-asus
 	tar xfJ tinkerboard.tar.xz
@@ -109,6 +109,7 @@ sync
 
 echo "Preparing to run chroot for more Tinkerboard configuration"
 cp scripts/tinkerconfig.sh /mnt/volumio/rootfs
+cp scripts/install-kiosk.sh /mnt/volumio/rootfs
 cp scripts/initramfs/init.nextarm /mnt/volumio/rootfs/root/init
 cp scripts/initramfs/mkinitramfs-custom.sh /mnt/volumio/rootfs/usr/local/sbin
 #copy the scripts for updating from usb
@@ -118,6 +119,19 @@ mount /dev /mnt/volumio/rootfs/dev -o bind
 mount /proc /mnt/volumio/rootfs/proc -t proc
 mount /sys /mnt/volumio/rootfs/sys -t sysfs
 echo $PATCH > /mnt/volumio/rootfs/patch
+
+if [ -f "/mnt/volumio/rootfs/$PATCH/patch.sh" ] && [ -f "config.js" ]; then
+        if [ -f "UIVARIANT" ] && [ -f "variant.js" ]; then
+                UIVARIANT=$(cat "UIVARIANT")
+        	echo "Configuring variant $UIVARIANT"
+                echo "Starting config.js for variant $UIVARIANT"
+                node config.js $PATCH $UIVARIANT
+                echo $UIVARIANT > /mnt/volumio/rootfs/UIVARIANT
+        else
+        	echo "Starting config.js"
+       		node config.js $PATCH
+        fi
+fi
 
 echo "UUID_DATA=$(blkid -s UUID -o value ${DATA_PART})
 UUID_IMG=$(blkid -s UUID -o value ${SYS_PART})
@@ -133,6 +147,13 @@ EOF
 #cleanup
 rm /mnt/volumio/rootfs/root/init.sh /mnt/volumio/rootfs/root/init /mnt/volumio/rootfs/tinkerconfig.sh
 
+UIVARIANT_FILE=/mnt/volumio/rootfs/UIVARIANT
+if [ -f "${UIVARIANT_FILE}" ]; then
+    echo "Starting variant.js"
+    node variant.js
+    rm $UIVARIANT_FILE
+fi
+
 echo "Unmounting Temp devices"
 umount -l /mnt/volumio/rootfs/dev
 umount -l /mnt/volumio/rootfs/proc
@@ -144,6 +165,9 @@ echo "==> Tinkerboard device installed"
 #echo "(you can keep it safely as long as you're sure of no changes)"
 #rm -r platform-asus
 sync
+
+echo "Finalizing Rootfs creation"
+sh scripts/finalize.sh
 
 echo "Preparing rootfs base for SquashFS"
 
@@ -187,3 +211,5 @@ umount -l /mnt/volumio/rootfs/boot
 dmsetup remove_all
 losetup -d ${LOOP_DEV}
 sync
+
+md5sum "$IMG_FILE" > "${IMG_FILE}.md5"

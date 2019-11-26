@@ -67,7 +67,7 @@ then
     # that will refresh all the bananapi platforms, see below
 else
 	echo "Clone bananapi m2u files from repo"
-	git clone https://github.com/gkkpch/platform-banana.git platform-banana
+	git clone --depth 1 https://github.com/gkkpch/platform-banana.git platform-banana
 	echo "Unpack the platform files"
     cd platform-banana
 	tar xfJ bpi-m2u.tar.xz
@@ -164,6 +164,9 @@ echo "==> BPI-M2U device installed"
 #echo "(you can keep it safely as long as you're sure of no changes)"
 #sudo rm -r platform-bananapi
 sync
+
+echo "Finalizing Rootfs creation"
+sh scripts/finalize.sh
 
 echo "Preparing rootfs base for SquashFS"
 

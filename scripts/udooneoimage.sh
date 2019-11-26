@@ -71,7 +71,7 @@ then
 
 else
 	echo "Clone all UDOO files from repo"
-	git clone https://github.com/volumio/platform-udoo.git platform-udoo
+	git clone --depth 1 https://github.com/volumio/platform-udoo.git platform-udoo
 	echo "Unpack the UDOO  platform files"
     cd platform-udoo
 	tar xfJ udoo-neo.tar.xz
@@ -150,6 +150,9 @@ echo "==> udoo-neo device installed"
 #sudo rm -r platforms-udoo
 sync
 
+echo "Finalizing Rootfs creation"
+sh scripts/finalize.sh
+
 echo "Preparing rootfs base for SquashFS"
 
 if [ -d /mnt/squash ]; then
@@ -192,3 +195,5 @@ umount -l /mnt/volumio/rootfs/boot
 dmsetup remove_all
 losetup -d ${LOOP_DEV}
 sync
+
+md5sum "$IMG_FILE" > "${IMG_FILE}.md5"

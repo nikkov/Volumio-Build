@@ -3,6 +3,8 @@
 //Volumio Network Manager - Copyright Michelangelo Guarise - Volumio.org
 
 // Time needed to settle some commands sent to the system like ifconfig
+var debug = false;
+
 var settleTime = 3000;
 var fs = require('fs-extra')
 var thus = require('child_process');
@@ -10,26 +12,25 @@ var wlan = "wlan0";
 var dhcpd = "dhcpd";
 var dhclient = "/usr/bin/sudo /sbin/dhcpcd";
 var justdhclient = "/usr/bin/sudo /sbin/dhcpcd";
-var wpasupp = "wpa_supplicant -d -s -B -Dnl80211,wext -c/etc/wpa_supplicant/wpa_supplicant.conf -i" + wlan;
 var starthostapd = "systemctl start hotspot.service";
 var stophostapd = "systemctl stop hotspot.service";
 var ifconfigHotspot = "ifconfig " + wlan + " 192.168.211.1 up";
 var ifconfigWlan = "ifconfig " + wlan + " up";
 var ifdeconfig = "sudo ip addr flush dev " + wlan + " && sudo ifconfig " + wlan + " down";
 var execSync = require('child_process').execSync;
-try {
-    var conf = fs.readJsonSync('/data/configuration/system_controller/network/config.json');
-    console.log('WIRELESS: Loaded configuration');
-} catch (e) {
-    console.log('WIRELESS: First boot');
-    var conf = fs.readJsonSync('/volumio/app/plugins/system_controller/network/config.json');
+var ifconfig = require('/volumio/app/plugins/system_controller/network/lib/ifconfig.js');
+var conf = {};
+if (debug) {
+	var wpasupp = "wpa_supplicant -d -s -B -Dnl80211,wext -c/etc/wpa_supplicant/wpa_supplicant.conf -i" + wlan;
+} else {
+	var wpasupp = "wpa_supplicant -s -B -Dnl80211,wext -c/etc/wpa_supplicant/wpa_supplicant.conf -i" + wlan;
 }
 
 function kill(process, callback) {
     var all = process.split(" ");
     var process = all[0];
     var command = 'kill `pgrep -f "^' + process + '"` || true';
-    console.log("killing: " + command);
+    logger("killing: " + command);
     return thus.exec(command, callback);
 }
 
@@ -39,15 +40,15 @@ function launch(fullprocess, name, sync, callback) {
     if (sync) {
         var child = thus.exec(fullprocess, {}, callback);
         child.stdout.on('data', function(data) {
-            console.log(name + 'stdout: ' + data);
+            logger(name + 'stdout: ' + data);
         });
 
         child.stderr.on('data', function(data) {
-            console.log(name + 'stderr: ' + data);
+            logger(name + 'stderr: ' + data);
         });
 
         child.on('close', function(code) {
-            console.log(name + 'child process exited with code ' + code);
+            logger(name + 'child process exited with code ' + code);
         });
     } else {
         var all = fullprocess.split(" ");
@@ -55,19 +56,19 @@ function launch(fullprocess, name, sync, callback) {
         if (all.length > 0) {
             all.splice(0, 1);
         }
-        console.log("launching " + process + " args: ");
-        console.log(all);
+        logger("launching " + process + " args: ");
+        logger(all);
         var child = thus.spawn(process, all, {});
         child.stdout.on('data', function(data) {
-            console.log(name + 'stdout: ' + data);
+            logger(name + 'stdout: ' + data);
         });
 
         child.stderr.on('data', function(data) {
-            console.log(name + 'stderr: ' + data);
+            logger(name + 'stderr: ' + data);
         });
 
         child.on('close', function(code) {
-            console.log(name + 'child process exited with code ' + code);
+            logger(name + 'child process exited with code ' + code);
         });
         callback();
     }
@@ -81,11 +82,11 @@ function startHotspot() {
         if (conf != undefined && conf.enable_hotspot != undefined && conf.enable_hotspot.value != undefined && !conf.enable_hotspot.value) {
             console.log('Hotspot is disabled, not starting it');
             launch(ifconfigWlan, "configwlanup", true, function(err) {
-                console.log("ifconfig " + err);
+                logger("ifconfig " + err);
             });
         } else {
             launch(ifconfigHotspot, "confighotspot", true, function(err) {
-                console.log("ifconfig " + err);
+                logger("ifconfig " + err);
                 launch(starthostapd,"hotspot" , false, function() {
                     wstatus("hotspot");
                 });
@@ -103,9 +104,9 @@ function stopHotspot(callback) {
 function startAP(callback) {
     console.log("Stopped hotspot (if there)..");
     launch(ifdeconfig, "ifdeconfig", true,  function(err) {
-        console.log("Conf " + ifdeconfig);
+        logger("Conf " + ifdeconfig);
         launch(wpasupp, "wpa supplicant", false, function(err) {
-            console.log("wpasupp " + err);
+            logger("wpasupp " + err);
             wpaerr = err;
             try {
                 dhclient = fs.readFileSync('/data/configuration/wlanstatic', 'utf8');
@@ -151,23 +152,33 @@ function startFlow() {
             console.log("Start ap");
             lesstimer = setInterval(function () {
                 actualTime += pollingTime;
-                if (wpaerr > 0) actualTime = totalSecondsForConnection + 1;
-
+                if (wpaerr > 0) {
+                    actualTime = totalSecondsForConnection + 1;
+                }
+                
                 if (actualTime > totalSecondsForConnection) {
                     console.log("Overtime, starting plan B");
-                    apstopped = 1;
-                    clearTimeout(lesstimer);
-                    stopAP(function () {
-                        setTimeout(function () {
-                            startHotspot(function () {
+                    if (conf != undefined && conf.hotspot_fallback != undefined && conf.hotspot_fallback.value != undefined && conf.hotspot_fallback.value) {
+                        console.log('STARTING HOTSPOT');
+                        apstopped = 1;
+                        clearTimeout(lesstimer);
+                        stopAP(function () {
+                            setTimeout(function () {
+                                startHotspot(function () {
 
 
-                            });
-                        }, settleTime);
-                    });
+                                });
+                            }, settleTime);
+                        });
+                    } else {
+                        apstopped = 0;
+                        wstatus("ap");
+                        clearTimeout(lesstimer);
+
+                    }
+
                 } else {
                     var SSID = undefined;
-                    var ifconfig = require('wireless-tools/ifconfig');
                     console.log("trying...");
                     try {
                         var SSID = execSync("/usr/bin/sudo /sbin/iwgetid -r", { uid: 1000, gid: 1000, encoding: 'utf8'});
@@ -208,11 +219,26 @@ function stop(callback) {
 }
 
 
+if ( ! fs.existsSync("/sys/class/net/" + wlan + "/operstate") ) {
+    console.log("WIRELESS: No wireless interface, exiting");
+    process.exit(1);
+}
+
 if (process.argv.length < 2) {
     console.log("Use: start|stop");
 } else {
     var args = process.argv[2];
-    console.log(args);
+    console.log('WIRELESS DAEMON: ' + args);
+    try {
+        conf = fs.readJsonSync('/data/configuration/system_controller/network/config.json');
+        console.log('WIRELESS: Loaded configuration');
+        if (debug) {
+        	console.log('WIRELESS CONF: ' + JSON.stringify(conf))
+	}
+    } catch (e) {
+        console.log('WIRELESS: First boot');
+        conf = fs.readJsonSync('/volumio/app/plugins/system_controller/network/config.json');
+    }
 
     switch (args) {
         case "start":
@@ -238,4 +264,10 @@ function wstatus(nstatus) {
 
 function restartAvahi() {
     //thus.exec("/bin/systemctl restart avahi-daemon");
+}
+
+function logger(msg) {
+    if (debug) {
+        console.log(msg)
+    }
 }

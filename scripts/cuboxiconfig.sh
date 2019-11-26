@@ -30,6 +30,7 @@ apt-get -y install u-boot-tools
 
 echo "Adding custom modules overlayfs, squashfs and nls_cp437"
 echo "overlayfs" >> /etc/initramfs-tools/modules
+echo "overlay" >> /etc/initramfs-tools/modules
 echo "squashfs" >> /etc/initramfs-tools/modules
 echo "nls_cp437" >> /etc/initramfs-tools/modules
 
@@ -49,6 +50,9 @@ if [ -f "patch.sh" ]; then
 sh patch.sh
 else
 echo "Cannot Find Patch File, aborting"
+fi
+if [ -f "install.sh" ]; then
+sh install.sh
 fi
 cd /
 rm -rf ${PATCH}

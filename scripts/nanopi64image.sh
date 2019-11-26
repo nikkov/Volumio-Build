@@ -68,7 +68,7 @@ then
     # that will refresh all the odroid platforms, see below
 else
 	echo "Clone  Nanopi64 files from repo"
-	git clone https://github.com/gkkpch/platform-nanopi platform-nanopi
+	git clone --depth 1 https://github.com/gkkpch/platform-nanopi platform-nanopi
 	echo "Unpack the platform files"
     cd  platform-nanopi
 	tar xfJ nanopi-a64.tar.xz
@@ -152,6 +152,9 @@ echo "==> NanoPI64 device installed"
 #sudo rm -r platform-nanopi
 sync
 
+echo "Finalizing Rootfs creation"
+sh scripts/finalize.sh
+
 echo "Preparing rootfs base for SquashFS"
 
 if [ -d /mnt/squash ]; then
@@ -199,3 +202,5 @@ sudo umount -l /mnt/volumio/rootfs/boot
 sudo dmsetup remove_all
 sudo losetup -d ${LOOP_DEV}
 sync
+
+md5sum "$IMG_FILE" > "${IMG_FILE}.md5"

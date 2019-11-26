@@ -72,7 +72,7 @@ then
 	cd ..
 else
 	echo "Clone all Odroid files from repo"
-	git clone https://github.com/gkkpch/Platform-Odroid.git platform-odroid
+	git clone --depth 1 https://github.com/gkkpch/Platform-Odroid.git platform-odroid
 	echo "Unpack the X2 platform files"
     cd platform-odroid
     tar xfJ odroidx2.tar.xz
@@ -166,6 +166,9 @@ umount -l /mnt/volumio/rootfs/sys
 sync
 echo "Odroid-XU4 device installed"
 
+echo "Finalizing Rootfs creation"
+sh scripts/finalize.sh
+
 echo "Preparing rootfs base for SquashFS"
 
 if [ -d /mnt/squash ]; then
@@ -209,3 +212,5 @@ umount -l /mnt/volumio/rootfs/boot
 dmsetup remove_all
 losetup -d ${LOOP_DEV}
 sync
+
+md5sum "$IMG_FILE" > "${IMG_FILE}.md5"

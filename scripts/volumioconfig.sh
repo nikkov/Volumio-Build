@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NODE_VERSION=6.11.0
+NODE_VERSION=8.11.1
 
 # This script will be run in chroot under qemu.
 
@@ -11,9 +11,30 @@ exit 101
 EOF
 chmod +x /usr/sbin/policy-rc.d
 
+echo "Configuring dpkg to not include Manual pages and docs"
+echo "path-exclude /usr/share/doc/*
+# we need to keep copyright files for legal reasons
+path-include /usr/share/doc/*/copyright
+path-exclude /usr/share/man/*
+path-exclude /usr/share/groff/*
+path-exclude /usr/share/info/*
+# lintian stuff is small, but really unnecessary
+path-exclude /usr/share/lintian/*
+path-exclude /usr/share/linda/*" > /etc/dpkg/dpkg.cfg.d/01_nodoc
+
+
 export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true
 export LC_ALL=C LANGUAGE=C LANG=C
 /var/lib/dpkg/info/dash.preinst install
+
+#if [ $(uname -m) = i686 ] || [ $(uname -m) = x86 ] || [ $(uname -m) = x86_64 ]  ; then
+#  echo "Fix for cgmanager not starting on x86"
+#  sed -i -e 's/# Required-Start:    mountkernfs/# Required-Start:/g' /etc/init.d/cgmanager
+#  dpkg --configure --force-all cgmanager
+#  sed -i -e 's/# Required-Start:    mountkernfs/# Required-Start:/g' /etc/init.d/cgmanager
+#fi
+
+echo "Configuring packages"
 dpkg --configure -a
 
 # Reduce locales to just one beyond C.UTF-8
@@ -41,8 +62,7 @@ echo ""
 #Adding Main user Volumio
 echo "Adding Volumio User"
 groupadd volumio
-useradd -c volumio -d /home/volumio -m -g volumio -G adm,dialout,cdrom,floppy,audio,dip,video,plugdev,netdev -s /bin/bash -p '$6$tRtTtICB$Ki6z.DGyFRopSDJmLUcf3o2P2K8vr5QxRx5yk3lorDrWUhH64GKotIeYSNKefcniSVNcGHlFxZOqLM6xiDa.M.' volumio
-echo "volumio ALL=(ALL) ALL" >> /etc/sudoers
+useradd -c volumio -d /home/volumio -m -g volumio -G adm,dialout,cdrom,floppy,audio,dip,video,plugdev,netdev,lp -s /bin/bash -p '$6$tRtTtICB$Ki6z.DGyFRopSDJmLUcf3o2P2K8vr5QxRx5yk3lorDrWUhH64GKotIeYSNKefcniSVNcGHlFxZOqLM6xiDa.M.' volumio
 
 #Setting Root Password
 echo 'root:$1$JVNbxLRo$pNn5AmZxwRtWZ.xF.8xUq/' | chpasswd -e
@@ -90,11 +110,20 @@ alias service="sudo /usr/sbin/service"
 alias ifconfig="sudo /sbin/ifconfig"
 # tv-service
 alias tvservice="/opt/vc/bin/tvservice"
+# vcgencmd
+alias vcgencmd="/opt/vc/bin/vcgencmd"
 ' >> /etc/bash.bashrc
 
 #Sudoers Nopasswd
+SUDOERS_FILE="/etc/sudoers.d/volumio-user"
 echo 'Adding Safe Sudoers NoPassw permissions'
-echo "volumio ALL=(ALL) NOPASSWD: /sbin/poweroff,/sbin/shutdown,/sbin/reboot,/sbin/halt,/bin/systemctl,/usr/bin/apt-get,/usr/sbin/update-rc.d,/usr/bin/gpio,/bin/mount,/bin/umount,/sbin/iwconfig,/sbin/iwlist,/sbin/ifconfig,/usr/bin/killall,/bin/ip,/usr/sbin/service,/etc/init.d/netplug,/bin/journalctl,/bin/chmod,/sbin/ethtool,/usr/sbin/alsactl,/bin/tar,/usr/bin/dtoverlay,/sbin/dhclient,/usr/sbin/i2cdetect,/sbin/dhcpcd,/usr/bin/alsactl,/bin/mv,/sbin/iw,/bin/hostname,/sbin/modprobe,/sbin/iwgetid,/bin/ln,/usr/bin/unlink,/bin/dd,/usr/bin/dcfldd" >> /etc/sudoers
+cat > ${SUDOERS_FILE} << EOF
+# Add permissions for volumio user
+volumio ALL=(ALL) ALL
+volumio ALL=(ALL) NOPASSWD: /sbin/poweroff,/sbin/shutdown,/sbin/reboot,/sbin/halt,/bin/systemctl,/usr/bin/apt-get,/usr/sbin/update-rc.d,/usr/bin/gpio,/bin/mount,/bin/umount,/sbin/iwconfig,/sbin/iwlist,/sbin/ifconfig,/usr/bin/killall,/bin/ip,/usr/sbin/service,/etc/init.d/netplug,/bin/journalctl,/bin/chmod,/sbin/ethtool,/usr/sbin/alsactl,/bin/tar,/usr/bin/dtoverlay,/sbin/dhclient,/usr/sbin/i2cdetect,/sbin/dhcpcd,/usr/bin/alsactl,/bin/mv,/sbin/iw,/bin/hostname,/sbin/modprobe,/sbin/iwgetid,/bin/ln,/usr/bin/unlink,/bin/dd,/usr/bin/dcfldd,/opt/vc/bin/vcgencmd,/opt/vc/bin/tvservice,/usr/bin/renice,/bin/rm
+volumio ALL=(ALL) NOPASSWD: /bin/sh /volumio/app/plugins/system_controller/volumio_command_line_client/commands/kernelsource.sh, /bin/sh /volumio/app/plugins/system_controller/volumio_command_line_client/commands/pull.sh
+EOF
+chmod 0440 ${SUDOERS_FILE}
 
 echo volumio > /etc/hostname
 chmod 777 /etc/hostname
@@ -105,7 +134,7 @@ echo "nameserver 8.8.8.8" > /etc/resolv.conf
 ################
 #Volumio System#---------------------------------------------------
 ################
-if [ $(uname -m) = armv7l ]; then
+if [ $(uname -m) = armv7l ] || [ $(uname -m) = aarch64 ]; then
   echo "Arm Environment detected"
   echo ' Adding Raspbian Repo Key'
   wget https://archive.raspbian.org/raspbian.public.key -O - | sudo apt-key add -
@@ -168,10 +197,10 @@ if [ $(uname -m) = armv7l ]; then
      rm libasound2_1.1.3-5_armhf.deb
      rm libasound2-dev_1.1.3-5_armhf.deb
 
-     echo "Installing MPD 20.6 with Direct DSD Support"
-     wget http://repo.volumio.org/Volumio2/Binaries/mpd-DSD/mpd_0.20.6-1_armv6-DSD-2.deb
-     dpkg -i mpd_0.20.6-1_armv6-DSD-2.deb
-     rm mpd_0.20.6-1_armv6-DSD-2.deb
+     echo "Installing MPD 20.18"
+     wget http://repo.volumio.org/Volumio2/Binaries/mpd-DSD/mpd_0.20.18-1_armv6.deb
+     dpkg -i mpd_0.20.18-1_armv6.deb
+     rm mpd_0.20.18-1_armv6.deb
 
      echo "Installing Upmpdcli for armv6"
      wget http://repo.volumio.org/Volumio2/Binaries/upmpdcli/armv6/libupnpp3_0.15.1-1_armhf.deb
@@ -185,9 +214,9 @@ if [ $(uname -m) = armv7l ]; then
      rm upmpdcli_1.2.12-1_armhf.deb
 
      echo "Adding volumio-remote-updater for armv6"
-     wget http://repo.volumio.org/Volumio2/Binaries/arm/volumio-remote-updater_1.2-armhf.deb
-     dpkg -i volumio-remote-updater_1.2-armhf.deb
-     rm volumio-remote-updater_1.2-armhf.deb
+     wget http://repo.volumio.org/Volumio2/Binaries/arm/volumio-remote-updater_1.3-armhf.deb
+     dpkg -i volumio-remote-updater_1.3-armhf.deb
+     rm volumio-remote-updater_1.3-armhf.deb
 
 
   elif [ $ARCH = armv7 ]; then
@@ -205,10 +234,10 @@ if [ $(uname -m) = armv7l ]; then
      rm libasound2_1.1.3-5_armhf.deb
      rm libasound2-dev_1.1.3-5_armhf.deb
 
-     echo "Installing MPD 20.6 with Direct DSD Support"
-     wget http://repo.volumio.org/Volumio2/Binaries/mpd-DSD/mpd_0.20.6-1_armv7-DSD.deb
-     dpkg -i mpd_0.20.6-1_armv7-DSD.deb
-     rm mpd_0.20.6-1_armv7-DSD.deb
+     echo "Installing MPD 20.18"
+     wget http://repo.volumio.org/Volumio2/Binaries/mpd-DSD/mpd_0.20.18-1_armv7.deb
+     dpkg -i mpd_0.20.18-1_armv7.deb
+     rm mpd_0.20.18-1_armv7.deb
 
     echo "Installing Upmpdcli for armv7"
     wget http://repo.volumio.org/Volumio2/Binaries/upmpdcli/armv7/libupnpp3_0.15.1-1_armhf.deb
@@ -222,36 +251,35 @@ if [ $(uname -m) = armv7l ]; then
     rm upmpdcli_1.2.12-1_armhf.deb
 
     echo "Adding volumio-remote-updater for armv7"
-    wget http://repo.volumio.org/Volumio2/Binaries/arm/volumio-remote-updater_1.2-armv7.deb
-    dpkg -i volumio-remote-updater_1.2-armv7.deb
-    rm volumio-remote-updater_1.2-armv7.deb
+    wget http://repo.volumio.org/Volumio2/Binaries/arm/volumio-remote-updater_1.3-armv7.deb
+    dpkg -i volumio-remote-updater_1.3-armv7.deb
+    rm volumio-remote-updater_1.3-armv7.deb
 
   fi
   #Remove autostart of upmpdcli
   update-rc.d upmpdcli remove
 
-
   echo "Installing Shairport-Sync"
-  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-metadata-reader-arm.tar.gz
-  tar xf shairport-sync-metadata-reader-arm.tar.gz
-  rm /shairport-sync-metadata-reader-arm.tar.gz
-
-  echo "Installing Shairport-Sync Metadata Reader"
   wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-3.0.2-arm.tar.gz
   tar xf shairport-sync-3.0.2-arm.tar.gz
   rm /shairport-sync-3.0.2-arm.tar.gz
 
+  echo "Installing Shairport-Sync Metadata Reader"
+  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-metadata-reader-arm.tar.gz
+  tar xf shairport-sync-metadata-reader-arm.tar.gz
+  rm /shairport-sync-metadata-reader-arm.tar.gz
+
   echo "Volumio Init Updater"
   wget http://repo.volumio.org/Volumio2/Binaries/arm/volumio-init-updater-v2 -O /usr/local/sbin/volumio-init-updater
   chmod a+x /usr/local/sbin/volumio-init-updater
-  echo "Installing Snapcast for multiroom"
 
+  echo "Installing Snapcast for multiroom"
   wget http://repo.volumio.org/Volumio2/Binaries/arm/snapserver -P /usr/sbin/
   wget http://repo.volumio.org/Volumio2/Binaries/arm/snapclient -P  /usr/sbin/
   chmod a+x /usr/sbin/snapserver
   chmod a+x /usr/sbin/snapclient
 
-  echo "Zsync"
+  echo "Installing Zsync"
   rm /usr/bin/zsync
   wget http://repo.volumio.org/Volumio2/Binaries/arm/zsync -P /usr/bin/
   chmod a+x /usr/bin/zsync
@@ -259,6 +287,10 @@ if [ $(uname -m) = armv7l ]; then
   echo "Adding special version for edimax dongle"
   wget http://repo.volumio.org/Volumio2/Binaries/arm/hostapd-edimax -P /usr/sbin/
   chmod a+x /usr/sbin/hostapd-edimax
+
+  echo "Adding special version for kernel 4.19"
+  wget http://repo.volumio.org/Volumio2/Binaries/arm/hostapd-2.8 -P /usr/sbin/
+  chmod a+x /usr/sbin/hostapd-2.8
 
   echo "interface=wlan0
 ssid=Volumio
@@ -270,19 +302,19 @@ wpa=2
 wpa_key_mgmt=WPA-PSK
 rsn_pairwise=CCMP
 wpa_passphrase=volumio2" >> /etc/hostapd/hostapd-edimax.conf
-  chmod -R 777 /etc/hostapd-edimax.conf
+  chmod -R 777 /etc/hostapd/hostapd-edimax.conf
 
   echo "Cleanup"
   apt-get clean
   rm -rf tmp/*
 elif [ $(uname -m) = i686 ] || [ $(uname -m) = x86 ] || [ $(uname -m) = x86_64 ]  ; then
-  echo 'X86 Environment Detected'
+  echo 'x86 Environment Detected'
 
   # cleanup
   apt-get clean
   rm -rf tmp/*
 
-  echo "Installing X86 Node Environment"
+  echo "Installing x86 Node Environment"
   cd /
   wget http://repo.volumio.org/Volumio2/node-v${NODE_VERSION}-linux-x86.tar.xz
   tar xf node-v${NODE_VERSION}-linux-x86.tar.xz
@@ -319,7 +351,7 @@ elif [ $(uname -m) = i686 ] || [ $(uname -m) = x86 ] || [ $(uname -m) = x86_64 ]
 
   echo "Installing MPD for i386"
   # First we manually install a newer alsa-lib to achieve Direct DSD support
-  
+
   echo "Installing alsa-lib 1.1.3"
   wget http://repo.volumio.org/Volumio2/Binaries/libasound2/i386/libasound2_1.1.3-5_i386.deb
   wget http://repo.volumio.org/Volumio2/Binaries/libasound2/i386/libasound2-data_1.1.3-5_all.deb
@@ -329,12 +361,12 @@ elif [ $(uname -m) = i686 ] || [ $(uname -m) = x86 ] || [ $(uname -m) = x86_64 ]
   dpkg --force-all -i libasound2-dev_1.1.3-5_i386.deb
   rm libasound2-data_1.1.3-5_all.deb
   rm libasound2_1.1.3-5_i386.deb
-  rm libasound2-dev_1.1.3-5_i386.deb 
+  rm libasound2-dev_1.1.3-5_i386.deb
 
-  echo "Installing MPD 20.6 with Direct DSD Support"
-  wget http://repo.volumio.org/Volumio2/Binaries/mpd-DSD/mpd_0.20.6-1_i386-DSD-2.deb
-  dpkg -i mpd_0.20.6-1_i386-DSD-2.deb
-  rm mpd_0.20.6-1_i386-DSD-2.deb
+  echo "Installing MPD 20.18"
+  wget http://repo.volumio.org/Volumio2/Binaries/mpd-DSD/mpd_0.20.18-1_i386.deb
+  dpkg -i mpd_0.20.18-1_i386.deb
+  rm mpd_0.20.18-1_i386.deb
 
   echo "Installing Upmpdcli"
   wget http://repo.volumio.org/Packages/Upmpdcli/x86/upmpdcli_1.2.12-1_i386.deb
@@ -351,12 +383,12 @@ elif [ $(uname -m) = i686 ] || [ $(uname -m) = x86 ] || [ $(uname -m) = x86_64 ]
   wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-3.0.2-i386.tar.gz
   tar xf shairport-sync-3.0.2-i386.tar.gz
   rm /shairport-sync-3.0.2-i386.tar.gz
-  
+
   echo "Installing Shairport-Sync Metadata Reader"
   wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-metadata-reader-i386.tar.gz
   tar xf shairport-sync-metadata-reader-i386.tar.gz
   rm /shairport-sync-metadata-reader-i386.tar.gz
-  
+
 
   echo "Installing LINN Songcast module"
   wget http://repo.volumio.org/Packages/Upmpdcli/x86/sc2mpd_1.1.1-1_i386.deb
@@ -367,34 +399,26 @@ elif [ $(uname -m) = i686 ] || [ $(uname -m) = x86 ] || [ $(uname -m) = x86_64 ]
   wget http://repo.volumio.org/Volumio2/Binaries/x86/volumio-init-updater-v2 -O /usr/local/sbin/volumio-init-updater
   chmod a+x /usr/local/sbin/volumio-init-updater
 
-  echo "Zsync"
+  echo "Installing Zsync"
   rm /usr/bin/zsync
   wget http://repo.volumio.org/Volumio2/Binaries/x86/zsync -P /usr/bin/
   chmod a+x /usr/bin/zsync
 
   echo "Adding volumio-remote-updater for i386"
-  wget http://repo.volumio.org/Volumio2/Binaries/x86/volumio-remote-updater_1.2-i386.deb
-  dpkg -i volumio-remote-updater_1.2-i386.deb
-  rm /volumio-remote-updater_1.2-i386.deb
+  wget http://repo.volumio.org/Volumio2/Binaries/x86/volumio-remote-updater_1.3-i386.deb
+  dpkg -i volumio-remote-updater_1.3-i386.deb
+  rm /volumio-remote-updater_1.3-i386.deb
 
 
 fi
 
-echo "Installing Upmpdcli Streaming Modules"
-wget http://repo.volumio.org/Packages/Upmpdcli/upmpdcli-gmusic_1.2.12-1_all.deb
-wget http://repo.volumio.org/Packages/Upmpdcli/upmpdcli-qobuz_1.2.12-1_all.deb
-wget http://repo.volumio.org/Packages/Upmpdcli/upmpdcli-tidal_1.2.12-1_all.deb
-dpkg -i upmpdcli-gmusic_1.2.12-1_all.deb
-dpkg -i upmpdcli-qobuz_1.2.12-1_all.deb
-dpkg -i upmpdcli-tidal_1.2.12-1_all.deb
-rm /upmpdcli-gmusic_1.2.12-1_all.deb
-rm /upmpdcli-qobuz_1.2.12-1_all.deb
-rm /upmpdcli-tidal_1.2.12-1_all.deb
+echo "Setting proper permissions for ping"
+chmod u+s /bin/ping
 
 echo "Creating Volumio Folder Structure"
 # Media Mount Folders
-mkdir /mnt/NAS
-mkdir /media
+mkdir -p /mnt/NAS
+mkdir -p /media
 ln -s /media /mnt/USB
 
 #Internal Storage Folder
@@ -459,6 +483,10 @@ ln -s /lib/systemd/system/volumiossh.service /etc/systemd/system/multi-user.targ
 echo "Setting Mpd to SystemD instead of Init"
 update-rc.d mpd remove
 systemctl enable mpd.service
+
+echo "Preventing hotspot services from starting at boot"
+systemctl disable hotspot.service
+systemctl disable dnsmasq.service
 
 echo "Preventing un-needed dhcp servers to start automatically"
 systemctl disable isc-dhcp-server.service
@@ -538,12 +566,6 @@ ln -s /etc/resolv.conf.tail.tmpl /etc/resolv.conf.tail
 echo "Removing Avahi Service for UDISK-SSH"
 rm /etc/avahi/services/udisks.service
 
-echo "Creating DHCPCD folder structure"
-mkdir /var/lib/dhcpcd5
-touch /var/lib/dhcpcd5/dhcpcd-wlan0.lease
-touch /var/lib/dhcpcd5/dhcpcd-eth0.lease
-chmod -R 777 /var/lib/dhcpcd5
-
 #####################
 #CPU  Optimizations#-----------------------------------------
 #####################
@@ -551,3 +573,24 @@ chmod -R 777 /var/lib/dhcpcd5
 echo "Setting CPU governor to performance"
 echo 'GOVERNOR="performance"' > /etc/default/cpufrequtils
 
+#####################
+#Multimedia Keys#-----------------------------------------
+#####################
+
+echo "Configuring xbindkeys"
+
+echo '"/usr/local/bin/volumio toggle"
+    XF86AudioPlay
+"/usr/local/bin/volumio previous"
+    XF86AudioPrev
+"/usr/local/bin/volumio next"
+    XF86AudioNext
+"/usr/local/bin/volumio volume toggle"
+    XF86AudioMute
+"/usr/local/bin/volumio volume minus"
+    XF86AudioLowerVolume
+"/usr/local/bin/volumio volume plus"
+    XF86AudioRaiseVolume' > /etc/xbindkeysrc
+
+echo "Enabling xbindkeys"
+ln -s /lib/systemd/system/xbindkeysrc.service /etc/systemd/system/multi-user.target.wants/xbindkeysrc.service

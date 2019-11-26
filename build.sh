@@ -157,14 +157,17 @@ if [ -n "$BUILD" ]; then
   echo 'Cloning Volumio Node Backend'
   mkdir "build/$BUILD/root/volumio"
   if [ -n "$PATCH" ]; then
-  echo "Cloning Volumio with all its history"
-  git clone https://github.com/volumio/Volumio2.git build/$BUILD/root/volumio
-  else 
-  git clone --depth 1 -b master --single-branch https://github.com/volumio/Volumio2.git build/$BUILD/root/volumio
+      echo "Cloning Volumio with all its history"
+      git clone https://github.com/volumio/Volumio2.git build/$BUILD/root/volumio
+  else
+      git clone --depth 1 -b master --single-branch https://github.com/volumio/Volumio2.git build/$BUILD/root/volumio
   fi
   echo 'Cloning Volumio UI'
   git clone --depth 1 -b dist --single-branch https://github.com/volumio/Volumio2-UI.git "build/$BUILD/root/volumio/http/www"
+  echo 'Cloning Volumio3 UI'
+  git clone --depth 1 -b dist3 --single-branch https://github.com/volumio/Volumio2-UI.git "build/$BUILD/root/volumio/http/www3"
   rm -rf build/$BUILD/root/volumio/http/www/.git
+  rm -rf build/$BUILD/root/volumio/http/www3/.git
   echo "Adding os-release infos"
   {
     echo "VOLUMIO_BUILD_VERSION=\"$(git rev-parse HEAD)\""
@@ -172,6 +175,7 @@ if [ -n "$BUILD" ]; then
     echo "VOLUMIO_BE_VERSION=\"$(git --git-dir "build/$BUILD/root/volumio/.git" rev-parse HEAD)\""
     echo "VOLUMIO_ARCH=\"${BUILD}\""
   } >> "build/$BUILD/root/etc/os-release"
+  
   if [ ! "$BUILD" = x86 ]; then
     chroot "build/$BUILD/root" /bin/bash -x <<'EOF'
 su -
@@ -226,8 +230,11 @@ case "$DEVICE" in
     ;;
   odroidc2) echo 'Writing Odroid-C2 Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
-# this will be changed to armv8 once the volumio packges have been re-compiled for aarch64
     sh scripts/odroidc2image.sh -v "$VERSION" -p "$PATCH" -a armv7
+    ;;
+  odroidn2) echo 'Writing Odroid-N2 Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/odroidn2image.sh -v "$VERSION" -p "$PATCH" -a armv7
     ;;
   odroidxu4) echo 'Writing Odroid-XU4 Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
@@ -279,6 +286,10 @@ case "$DEVICE" in
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/tinkerimage.sh -v "$VERSION" -p "$PATCH" -a armv7
     ;;
+  primo) echo 'Writing Volumio Primo Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/primoimage.sh -v "$VERSION" -p "$PATCH" -a armv7
+    ;;
   sopine64) echo 'Writing Sopine64 Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/sopine64image.sh -v "$VERSION" -p "$PATCH" -a armv7
@@ -291,6 +302,22 @@ case "$DEVICE" in
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/vszeroimage.sh -v "$VERSION" -p "$PATCH" -a armv7
     ;;
+  aml805armv7) echo 'Writing Amlogic S805 Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/aml805armv7image.sh -v "$VERSION" -p "$PATCH" -a armv7
+    ;;
+  aml812armv7) echo 'Writing Amlogic S812 Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/aml812armv7image.sh -v "$VERSION" -p "$PATCH" -a armv7
+    ;;
+  aml9xxxarmv7) echo 'Writing AmlogicS9xxx Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/aml9xxxarmv7image.sh -v "$VERSION" -p "$PATCH" -a armv7
+    ;;
+  orangepione|orangepilite|orangepipc) echo 'Writing OrangePi Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/orangepiimage.sh -v "$VERSION" -p "$PATCH" -d "$DEVICE"
+    ;;
   x86) echo 'Writing x86 Image File'
     check_os_release "x86" "$VERSION" "$DEVICE"
     sh scripts/x86image.sh -v "$VERSION" -p "$PATCH";
@@ -302,6 +329,26 @@ case "$DEVICE" in
   nanopineo) echo 'Writing NanoPi-NEO (Air) Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/nanopineoimage.sh -v "$VERSION" -p "$PATCH" -a armv7
+    ;;
+  motivo) echo 'Writing Motivo Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/motivoimage.sh -v "$VERSION" -p "$PATCH" -a armv7
+    ;;
+  primo) echo 'Writing Primo Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/primoimage.sh -v "$VERSION" -p "$PATCH" -a armv7
+    ;;
+  vim1) echo 'Writing VIM1 Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/vim1image.sh -v "$VERSION" -p "$PATCH" -a armv7
+    ;;
+  kvim1) echo 'Writing VIM1 Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/kvimsimage.sh -v "$VERSION" -p "$PATCH" -a armv7 -m ${DEVICE}
+	;;
+  kvim3l) echo 'Writing VIM3L Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/kvimsimage.sh -v "$VERSION" -p "$PATCH" -a armv7 -m ${DEVICE}
     ;;
 esac
 

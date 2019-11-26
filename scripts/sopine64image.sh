@@ -68,7 +68,7 @@ then
     # that will refresh all the odroid platforms, see below
 else
 	echo "Clone (so)Pine64(LTS) files from repo"
-	git clone https://github.com/volumio/platform-pine64.git platform-pine64
+	git clone --depth 1 https://github.com/volumio/platform-pine64.git platform-pine64
 	echo "Unpack the (so)Pine64(LTS) platform files"
     cd platform-pine64
 	tar xfJ sopine64lts.tar.xz
@@ -132,12 +132,33 @@ wget -P /mnt/volumio/rootfs/root http://repo.volumio.org/Volumio2/Binaries/volum
 mount /dev /mnt/volumio/rootfs/dev -o bind
 mount /proc /mnt/volumio/rootfs/proc -t proc
 mount /sys /mnt/volumio/rootfs/sys -t sysfs
+
 echo $PATCH > /mnt/volumio/rootfs/patch
+
+if [ -f "/mnt/volumio/rootfs/$PATCH/patch.sh" ] && [ -f "config.js" ]; then
+        if [ -f "UIVARIANT" ] && [ -f "variant.js" ]; then
+                UIVARIANT=$(cat "UIVARIANT")
+                echo "Configuring variant $UIVARIANT"
+                echo "Starting config.js for variant $UIVARIANT"
+                node config.js $PATCH $UIVARIANT
+                echo $UIVARIANT > /mnt/volumio/rootfs/UIVARIANT
+        else
+                echo "Starting config.js"
+                node config.js $PATCH
+        fi
+fi
 
 chroot /mnt/volumio/rootfs /bin/bash -x <<'EOF'
 su -
 /pine64config.sh
 EOF
+
+UIVARIANT_FILE=/mnt/volumio/rootfs/UIVARIANT
+if [ -f "${UIVARIANT_FILE}" ]; then
+    echo "Starting variant.js"
+    node variant.js
+    rm $UIVARIANT_FILE
+fi
 
 #cleanup
 rm /mnt/volumio/rootfs/pine64config.sh /mnt/volumio/rootfs/root/init
@@ -158,6 +179,9 @@ echo "==> soPine64/ Pine64 LTS device installed"
 #echo "(you can keep it safely as long as you're sure of no changes)"
 #sudo rm -r platform-pine64
 sync
+
+echo "Finalizing Rootfs creation"
+sh scripts/finalize.sh
 
 echo "Preparing rootfs base for SquashFS"
 
@@ -201,3 +225,5 @@ sudo umount -l /mnt/volumio/rootfs/boot
 sudo dmsetup remove_all
 sudo losetup -d ${LOOP_DEV}
 sync
+
+md5sum "$IMG_FILE" > "${IMG_FILE}.md5"

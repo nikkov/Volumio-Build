@@ -75,6 +75,11 @@ do
   esac
 done
 
+# Setting default boot delay of 5 seconds
+if [ -z "$BOOTDELAY" ]; then
+  BOOTDELAY=5
+fi
+
 #Hardware specific adaptions
 
 #When we did not already get the device name from the cmdline, try getting it from cpuinfo
@@ -94,7 +99,7 @@ else
    OVERLAY=WITHWRKDIR
 fi
 
-print_msg "Booting Volumio for for ${HWDEVICE}"
+print_msg "Booting Volumio for ${HWDEVICE}"
 print_msg "	This script mounts rootfs RO with an overlay RW layer."
 if [ $OVERLAY == WITHWRKDIR ]; then
    # For overlayfs version V22 or higher (modulename 'overlay')
@@ -105,6 +110,11 @@ else
 fi
 modprobe squashfs
 modprobe nls_cp437
+modprobe fuse
+
+if [ $HWDEVICE == motivo ]; then
+   modprobe panel-feiyang-fy07024di26a30d
+fi
 
 if [ -z "${IMGPART}" ]; then
   print_msg "Specify the squash image partition after the kernel command ${CMDLINE}"
@@ -157,6 +167,8 @@ mount -t ext4 ${IMGPART} /mnt/imgpart
 #
 if [ ! -e "/mnt/imgpart/volumio_factory.sqsh" ]; then
   print_msg "Creating factory image, this will take a minute, please wait..."
+  # TODO, ALLOW FOR INTERRUPTION IN FACTORY IMAGE CREATION
+  # USE THE FILE APPROACH TO SIGNAL WHEN CREATION HAS BEEN EXECUTED CORRECTLY
   cp /mnt/imgpart/volumio_current.sqsh /mnt/imgpart/volumio_factory.sqsh
   print_msg "Factory image created"
   print_msg "Creating archive for factory kernel..."
@@ -166,6 +178,7 @@ if [ ! -e "/mnt/imgpart/volumio_factory.sqsh" ]; then
   cp /mnt/imgpart/kernel_current.tar /mnt/imgpart/kernel_factory.tar
   umount /mnt/factory
   rm -r /mnt/factory
+  sync
 elif [ ! -z "${BOOTDELAY}" ]; then
   print_msg "Doing a ${BOOTDELAY} second delay here to give kernel load a headstart"
   sleep ${BOOTDELAY}
@@ -226,12 +239,24 @@ VOLUMIO_VERSION="$(cat /mnt/static/etc/os-release | grep VOLUMIO_VERSION)"
 #
 mkdir /mnt/factory
 mount -t auto /dev/${BOOTDEV}p1 /mnt/factory
+
+if [ $HWDEVICE == motivo ]; then
+  print_msg "Showing boot logo" 
+  /bin/busybox lzop -d -c /mnt/factory/motivosplash > /dev/fb0
+fi
+
 if [ -e "/mnt/factory/factory_reset" ]; then
   print_msg "Executing factory reset"
   mkfs.ext4 -F -E stride=2,stripe-width=1024 -b 4096 /dev/${BOOTDEV}p3 -L volumio_data
   print_msg "Factory reset executed: part I - User DATA Part"
+  if [ -e "/mnt/imgpart/kernel_fallback.tar" ]; then
+     rm /mnt/imgpart/kernel_fallback.tar
+  fi
   tar xf /mnt/imgpart/kernel_factory.tar -C /mnt/factory
   print_msg "Factory reset executed: part II - Kernel"
+  if [ -e "/mnt/imgpart/volumio_fallback.sqsh" ]; then
+     rm /mnt/imgpart/volumio_fallback.sqsh
+  fi
   cp  /mnt/imgpart/volumio_factory.sqsh /mnt/imgpart/volumio_current.sqsh
   print_msg "Factory reset executed: part III - Squash"
   print_msg "Factory reset successfully executed"

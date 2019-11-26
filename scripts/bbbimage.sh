@@ -21,7 +21,7 @@ then
 	echo "Platform folder already exists - keeping it"
 else
 	echo "Clone all BBB files from repo"
-	git clone https://github.com/volumio/platform-bbb.git platform-bbb
+	git clone --depth 1 https://github.com/volumio/platform-bbb.git platform-bbb
 fi
 
 BUILDDATE=$(date -I)
@@ -140,6 +140,9 @@ echo "==> bbb device installed"
 #echo "(you can keep it safely as long as you're sure of no changes)"
 #sudo rm -r platforms-bbb
 sync
+
+echo "Finalizing Rootfs creation"
+sh scripts/finalize.sh
 
 echo "Preparing rootfs base for SquashFS"
 
