@@ -18,19 +18,6 @@ while getopts ":d:v:p:" opt; do
   esac
 done
 
-old="$IFS"
-set -f; IFS='_'
-set -- $DEVICE
-BOARD=$2
-BRANCH=$3
-set +f
-IFS="$old"
-
-echo "We're sorry, due to various failure reports and currently missing community support, Armbian builds had to be suspended"
-exit 1
-
-echo BOARD:$BOARD BRANCH:$BRANCH
-
 BUILDDATE=$(date -I)
 IMG_FILE="Volumio${VERSION}-${BUILDDATE}-${DEVICE}.img"
 
@@ -40,15 +27,14 @@ else
   DISTRO="Debian 32bit"
 fi
 
-echo "Creating Image File ${IMG_FILE} with $DISTRO rootfs"
+echo "Creating Image File ${IMG_FILE} with ${DISTRO} rootfs"
 dd if=/dev/zero of=${IMG_FILE} bs=1M count=2800
 
 echo "Creating Image Bed"
-LOOP_DEV=`sudo losetup -f --show ${IMG_FILE}`
+LOOP_DEV=`losetup -f --show ${IMG_FILE}`
 # Note: leave the first 20Mb free for the firmware
 parted -s "${LOOP_DEV}" mklabel msdos
-# parted -s "${LOOP_DEV}" mkpart primary fat32 1 64
-parted -s "${LOOP_DEV}" mkpart primary ext3 1 64
+parted -s "${LOOP_DEV}" mkpart primary fat32 1 64
 parted -s "${LOOP_DEV}" mkpart primary ext3 65 2500
 parted -s "${LOOP_DEV}" mkpart primary ext3 2500 100%
 parted -s "${LOOP_DEV}" set 1 boot on
@@ -69,12 +55,37 @@ then
 fi
 
 echo "Creating boot and rootfs filesystems"
-# mkfs -t vfat -n BOOT "${BOOT_PART}"
-mkfs -F -t ext4 -L BOOT "${BOOT_PART}"
-mkfs -F -t ext4 -L volumio "${SYS_PART}"
-mkfs -F -t ext4 -L volumio_data "${DATA_PART}"
+mkfs -t vfat -n BOOT "${BOOT_PART}"
+mkfs -F -t ext4 -O ^metadata_csum -L volumio "${SYS_PART}"
+mkfs -F -t ext4 -O ^metadata_csum -L volumio_data "${DATA_PART}"
 sync
 
+echo "Preparing for the ${DEVICE} kernel/platform files"
+if [ -d platform-armbian ]
+then
+	echo "Platform folder already exists - keeping it"
+else
+	echo "Download all ${DEVICE} files from repo"
+	mkdir platform-armbian
+	cd platform-armbian
+#	wget https://github.com/nikkov/nanopineo2-platform/raw/master/nanopineo.tar.xz
+	echo "Unpack the ${DEVICE} platform files"
+	tar xfJ "${DEVICE}.tar.xz"
+	rm "${DEVICE}.tar.xz"
+	cd ..
+fi
+
+if [ "$DEVICE" = "nanopineo2" ]; then
+	echo "Burning sunxi-spl.bin and u-boot.itb"
+	dd if=platform-armbian/${DEVICE}/u-boot/sunxi-spl.bin of=${LOOP_DEV} bs=1024 seek=8
+	dd if=platform-armbian/${DEVICE}/u-boot/u-boot.itb of=${LOOP_DEV} bs=1024 seek=40
+else
+	echo "Burning u-boot-sunxi-with-spl.bin"
+	dd if=platform-armbian/${DEVICE}/u-boot/u-boot-sunxi-with-spl.bin of=${LOOP_DEV} bs=1024 seek=8 conv=notrunc
+fi
+sync
+
+echo "Preparing for Volumio rootfs"
 if [ -d /mnt ]
 then
 	echo "/mount folder exist"
@@ -87,7 +98,7 @@ then
 	rm -rf /mnt/volumio/*
 else
 	echo "Creating Volumio Temp Directory"
-	sudo mkdir /mnt/volumio
+	mkdir /mnt/volumio
 fi
 
 echo "Creating mount point for the images partition"
@@ -96,17 +107,21 @@ mount -t ext4 "${SYS_PART}" /mnt/volumio/images
 mkdir /mnt/volumio/rootfs
 echo "Creating mount point for the boot partition"
 mkdir /mnt/volumio/rootfs/boot
-# mount -t vfat "${BOOT_PART}" /mnt/volumio/rootfs/boot
-mount -t ext4 "${BOOT_PART}" /mnt/volumio/rootfs/boot
+mount -t vfat "${BOOT_PART}" /mnt/volumio/rootfs/boot
 
 echo "Copying Volumio RootFs"
-cp -pdR build/arm/root/* /mnt/volumio/rootfs
+cp -pdR build/$ARCH/root/* /mnt/volumio/rootfs
 
-echo "Preparing to run chroot for more BPI-PRO configuration"
+echo "Copying ${DEVICE} boot files, kernel, modules and firmware"
+cp -dR platform-armbian/${DEVICE}/boot /mnt/volumio/rootfs
+cp -pdR platform-armbian/${DEVICE}/lib/modules /mnt/volumio/rootfs/lib
+cp -pdR platform-armbian/${DEVICE}/lib/firmware /mnt/volumio/rootfs/lib
+
+sync
+
+echo "Preparing to run chroot for more ${DEVICE} configuration"
 cp scripts/armbianconfig.sh /mnt/volumio/rootfs
-cp scripts/upgrade_armbian.sh /mnt/volumio/rootfs/root
-cp scripts/initramfs/init_armbian  /mnt/volumio/rootfs/root/init
-echo "BOARD=$BOARD\nBRANCH=$BRANCH\n" > /mnt/volumio/rootfs/root/device.sh
+cp scripts/initramfs/init.nextarm /mnt/volumio/rootfs/root/init
 cp scripts/initramfs/mkinitramfs-custom.sh /mnt/volumio/rootfs/usr/local/sbin
 #copy the scripts for updating from usb
 wget -P /mnt/volumio/rootfs/root http://repo.volumio.org/Volumio2/Binaries/volumio-init-updater
@@ -116,14 +131,37 @@ mount /proc /mnt/volumio/rootfs/proc -t proc
 mount /sys /mnt/volumio/rootfs/sys -t sysfs
 echo $PATCH > /mnt/volumio/rootfs/patch
 
+echo "UUID_DATA=$(blkid -s UUID -o value ${DATA_PART})
+UUID_IMG=$(blkid -s UUID -o value ${SYS_PART})
+UUID_BOOT=$(blkid -s UUID -o value ${BOOT_PART})
+" > /mnt/volumio/rootfs/root/init.sh
+chmod +x /mnt/volumio/rootfs/root/init.sh
+
+if [ -f "/mnt/volumio/rootfs/$PATCH/patch.sh" ] && [ -f "config.js" ]; then
+        if [ -f "UIVARIANT" ] && [ -f "variant.js" ]; then
+                UIVARIANT=$(cat "UIVARIANT")
+                echo "Configuring variant $UIVARIANT"
+                echo "Starting config.js for variant $UIVARIANT"
+                node config.js $PATCH $UIVARIANT
+                echo $UIVARIANT > /mnt/volumio/rootfs/UIVARIANT
+        else
+                echo "Starting config.js"
+                node config.js $PATCH
+        fi
+fi
+
 chroot /mnt/volumio/rootfs /bin/bash -x <<'EOF'
 su -
 /armbianconfig.sh
 EOF
 
-# write board specific boot sector
-echo write board specific boot sector
-dd if=/mnt/volumio/rootfs/boot/u-boot-sunxi-with-spl.bin of=${LOOP_DEV} bs=1024 seek=8 conv=notrunc
+UIVARIANT_FILE=/mnt/volumio/rootfs/UIVARIANT
+if [ -f "${UIVARIANT_FILE}" ]; then
+    echo "Starting variant.js"
+    node variant.js
+    rm $UIVARIANT_FILE
+fi
+
 
 #cleanup
 rm /mnt/volumio/rootfs/armbianconfig.sh /mnt/volumio/rootfs/root/init
@@ -133,14 +171,7 @@ umount -l /mnt/volumio/rootfs/dev
 umount -l /mnt/volumio/rootfs/proc
 umount -l /mnt/volumio/rootfs/sys
 
-#echo "Copying LIRC configuration files"
-
-
-echo "==> BPI-PRO device installed"
-
-#echo "Removing temporary platform files"
-#echo "(you can keep it safely as long as you're sure of no changes)"
-#rm -r platform-bananapi
+echo "==> ${DEVICE} device installed"
 sync
 
 echo "Finalizing Rootfs creation"
@@ -165,13 +196,18 @@ if [ -e /mnt/kernel_current.tar ]; then
 fi
 
 echo "Creating Kernel Partition Archive"
-tar cf /mnt/kernel_current.tar  -C /mnt/squash/boot/ .
+tar cf /mnt/kernel_current.tar --exclude='resize-volumio-datapart' -C /mnt/squash/boot/ .
 
 echo "Removing the Kernel"
 rm -rf /mnt/squash/boot/*
 
 echo "Creating SquashFS, removing any previous one"
-rm -r Volumio.sqsh
+if [ -e Volumio.sqsh ]; then
+	echo "Volumio Kernel Partition Archive exists - Cleaning it"
+	rm -r Volumio.sqsh
+fi
+
+echo "Creating SquashFS"
 mksquashfs /mnt/squash/* Volumio.sqsh
 
 echo "Squash filesystem created"

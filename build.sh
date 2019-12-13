@@ -28,7 +28,7 @@ Switches:
               pi, udooneo, udooqdl, cuboxi, cubietruck, compulab,
               odroidc1, odroidc2, odroidxu4, sparky, bbb, pine64,
               bpim2u, bpipro, tinkerboard, sopine64, rock64, voltastream0, nanopi64,
-              nanopineo2, nanopineo, nanopineo
+              nanopineo2, nanopineo, nanopiair
   -v <vers> Version must be a dot separated number. Example 1.102 .
 
   -l <repo> Create docker layer. Give a Docker Repository name as the argument.
@@ -322,13 +322,25 @@ case "$DEVICE" in
     check_os_release "x86" "$VERSION" "$DEVICE"
     sh scripts/x86image.sh -v "$VERSION" -p "$PATCH";
     ;;
-  nanopineo2) echo 'Writing NanoPi-NEO2 armv7 Image File'
+#  nanopineo2) echo 'Writing NanoPi-NEO2 armv7 Image File'
+#    check_os_release "armv7" "$VERSION" "$DEVICE"
+#    sh scripts/nanopineo2image.sh -v "$VERSION" -p "$PATCH" -a armv7
+#    ;;
+#  nanopineo) echo 'Writing NanoPi-NEO (Air) Image File'
+#    check_os_release "armv7" "$VERSION" "$DEVICE"
+#    sh scripts/nanopineoimage.sh -v "$VERSION" -p "$PATCH" -a armv7
+#    ;;
+  nanopineo2) echo 'Writing NanoPi-NEO2 Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
-    sh scripts/nanopineo2image.sh -v "$VERSION" -p "$PATCH" -a armv7
+    sh scripts/armbianimage.sh -v "$VERSION" -p "$PATCH" -d "$DEVICE"
     ;;
-  nanopineo) echo 'Writing NanoPi-NEO (Air) Image File'
+  nanopineo) echo 'Writing NanoPi-NEO Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
-    sh scripts/nanopineoimage.sh -v "$VERSION" -p "$PATCH" -a armv7
+    sh scripts/armbianimage.sh -v "$VERSION" -p "$PATCH" -d "$DEVICE"
+    ;;
+  nanopiair) echo 'Writing NanoPi-NEO Air Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/armbianimage.sh -v "$VERSION" -p "$PATCH" -d "$DEVICE"
     ;;
   motivo) echo 'Writing Motivo Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
