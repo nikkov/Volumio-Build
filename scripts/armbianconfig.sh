@@ -73,7 +73,13 @@ rm /patch
 
 echo "Installing winbind here, since it freezes networking"
 apt-get update
-apt-get install -y winbind libnss-winbind device-tree-compiler
+apt-get install -y winbind libnss-winbind
+
+
+echo "Install device tree compiler with overlays support"
+wget -P /tmp http://ftp.debian.org/debian/pool/main/d/device-tree-compiler/device-tree-compiler_1.4.7-3_armhf.deb
+dpkg -i /tmp/device-tree-compiler_1.4.7-3_armhf.deb
+rm /tmp/device-tree-compiler_1.4.7-3_armhf.deb
 
 #echo "adding gpio group and udev rules"
 #groupadd -f --system gpio
@@ -106,4 +112,4 @@ fi
 
 mkimage -A arm -T script -C none -d /boot/boot.cmd /boot/boot.scr
 echo "Cleaning up"
-# rm /boot/volumio.initrd
+rm /boot/volumio.initrd
