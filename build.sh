@@ -342,6 +342,10 @@ case "$DEVICE" in
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/armbianimage.sh -v "$VERSION" -p "$PATCH" -d "$DEVICE"
     ;;
+  cubietruck) echo 'Writing Cubietruck Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/armbianimage.sh -v "$VERSION" -p "$PATCH" -d "$DEVICE"
+    ;;
   motivo) echo 'Writing Motivo Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/motivoimage.sh -v "$VERSION" -p "$PATCH" -a armv7
