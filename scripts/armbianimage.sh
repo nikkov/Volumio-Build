@@ -75,7 +75,7 @@ else
 	cd ..
 fi
 
-if [ "$DEVICE" = "nanopineo2" ]; then
+if [ "$DEVICE" = "nanopineo2" ] || [ "$DEVICE" = "nanopineoplus2" ]; then
 	echo "Burning sunxi-spl.bin and u-boot.itb"
 	dd if=platform-armbian/${DEVICE}/u-boot/sunxi-spl.bin of=${LOOP_DEV} bs=1024 seek=8
 	dd if=platform-armbian/${DEVICE}/u-boot/u-boot.itb of=${LOOP_DEV} bs=1024 seek=40

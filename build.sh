@@ -334,6 +334,10 @@ case "$DEVICE" in
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/armbianimage.sh -v "$VERSION" -p "$PATCH" -d "$DEVICE"
     ;;
+  nanopineoplus2) echo 'Writing NanoPi-NEO+2 Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/armbianimage.sh -v "$VERSION" -p "$PATCH" -d "$DEVICE"
+    ;;
   nanopineo) echo 'Writing NanoPi-NEO Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/armbianimage.sh -v "$VERSION" -p "$PATCH" -d "$DEVICE"

@@ -28,7 +28,7 @@ echo "
 options snd-usb-audio index=5" >> /etc/modprobe.d/alsa-base.conf
 
 
-if [ "$DEVICE" = "nanopineo2" ]; then
+if [ "$DEVICE" = "nanopineo2" ] || [ "$DEVICE" = "nanopineoplus2" ]; then
 	echo "Fixing armv8 deprecated instruction emulation with armv7 rootfs"
 	echo "abi.cp15_barrier=2" >> /etc/sysctl.conf
 fi
@@ -102,7 +102,7 @@ touch /boot/resize-volumio-datapart
 echo "Creating initramfs 'volumio.initrd'"
 mkinitramfs-custom.sh -o /tmp/initramfs-tmp
 
-if [ "$DEVICE" = "nanopineo2" ]; then
+if [ "$DEVICE" = "nanopineo2" ] || [ "$DEVICE" = "nanopineoplus2" ]; then
 echo "Creating uInitrd from 'volumio.initrd' for arm64"
 mkimage -A arm64 -O linux -T ramdisk -C none -a 0 -e 0 -n uInitrd -d /boot/volumio.initrd /boot/uInitrd
 else
