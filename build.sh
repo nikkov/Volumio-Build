@@ -13,6 +13,9 @@ BOLD=$(tput bold)
 REV=$(tput smso)
 
 ARCH=none
+
+PACKAGES="git squashfs-tools kpartx multistrap qemu-user-static samba debootstrap parted dosfstools qemu binfmt-support qemu-utils docker.io md5deep"
+
 #Help function
 function HELP {
   echo "
@@ -39,6 +42,18 @@ Example: Build a Raspberry PI image from scratch, version 2.0 :
          ./build.sh -b arm -d pi -v 2.0 -l reponame
 "
   exit 1
+}
+
+# Auto check and install prerequisite packages
+function check_sysreq {
+  echo "Auto check and install prerequisite packages"
+  REQ_STATE=$(dpkg -l $PACKAGES | grep "un  ")
+  if [ -n "$REQ_STATE" ]; then
+    echo "Start installing packages."
+    apt update
+    apt -y install $PACKAGES
+  fi
+  echo "Build continues."
 }
 
 #$1 = ${BUILD} $2 = ${VERSION} $3 = ${DEVICE}"
@@ -110,6 +125,7 @@ if [ -z "${VARIANT}" ]; then
 fi
 
 if [ -n "$BUILD" ]; then
+  check_sysreq
   CONF="recipes/$BUILD.conf"
   if [ "$BUILD" = arm ] || [ "$BUILD" = arm-dev ]; then
     ARCH="armhf"
@@ -362,13 +378,10 @@ case "$DEVICE" in
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/vim1image.sh -v "$VERSION" -p "$PATCH" -a armv7
     ;;
-  kvim1) echo 'Writing VIM1 Image File'
+  kvim1|kvim2|kvim3|kvim3l) echo 'Writing VIM1 Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/kvimsimage.sh -v "$VERSION" -p "$PATCH" -a armv7 -m ${DEVICE}
-	;;
-  kvim3l) echo 'Writing VIM3L Image File'
-    check_os_release "armv7" "$VERSION" "$DEVICE"
-    sh scripts/kvimsimage.sh -v "$VERSION" -p "$PATCH" -a armv7 -m ${DEVICE}
+
     ;;
 esac
 

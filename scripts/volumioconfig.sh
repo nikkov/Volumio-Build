@@ -120,7 +120,7 @@ echo 'Adding Safe Sudoers NoPassw permissions'
 cat > ${SUDOERS_FILE} << EOF
 # Add permissions for volumio user
 volumio ALL=(ALL) ALL
-volumio ALL=(ALL) NOPASSWD: /sbin/poweroff,/sbin/shutdown,/sbin/reboot,/sbin/halt,/bin/systemctl,/usr/bin/apt-get,/usr/sbin/update-rc.d,/usr/bin/gpio,/bin/mount,/bin/umount,/sbin/iwconfig,/sbin/iwlist,/sbin/ifconfig,/usr/bin/killall,/bin/ip,/usr/sbin/service,/etc/init.d/netplug,/bin/journalctl,/bin/chmod,/sbin/ethtool,/usr/sbin/alsactl,/bin/tar,/usr/bin/dtoverlay,/sbin/dhclient,/usr/sbin/i2cdetect,/sbin/dhcpcd,/usr/bin/alsactl,/bin/mv,/sbin/iw,/bin/hostname,/sbin/modprobe,/sbin/iwgetid,/bin/ln,/usr/bin/unlink,/bin/dd,/usr/bin/dcfldd,/opt/vc/bin/vcgencmd,/opt/vc/bin/tvservice,/usr/bin/renice,/bin/rm
+volumio ALL=(ALL) NOPASSWD: /sbin/poweroff,/sbin/shutdown,/sbin/reboot,/sbin/halt,/bin/systemctl,/usr/bin/apt-get,/usr/sbin/update-rc.d,/usr/bin/gpio,/bin/mount,/bin/umount,/sbin/iwconfig,/sbin/iwlist,/sbin/ifconfig,/usr/bin/killall,/bin/ip,/usr/sbin/service,/etc/init.d/netplug,/bin/journalctl,/bin/chmod,/sbin/ethtool,/usr/sbin/alsactl,/bin/tar,/usr/bin/dtoverlay,/sbin/dhclient,/usr/sbin/i2cdetect,/sbin/dhcpcd,/usr/bin/alsactl,/bin/mv,/sbin/iw,/bin/hostname,/sbin/modprobe,/sbin/iwgetid,/bin/ln,/usr/bin/unlink,/bin/dd,/usr/bin/dcfldd,/opt/vc/bin/vcgencmd,/opt/vc/bin/tvservice,/usr/bin/renice,/bin/rm,/bin/kill
 volumio ALL=(ALL) NOPASSWD: /bin/sh /volumio/app/plugins/system_controller/volumio_command_line_client/commands/kernelsource.sh, /bin/sh /volumio/app/plugins/system_controller/volumio_command_line_client/commands/pull.sh
 EOF
 chmod 0440 ${SUDOERS_FILE}
@@ -260,9 +260,9 @@ if [ $(uname -m) = armv7l ] || [ $(uname -m) = aarch64 ]; then
   update-rc.d upmpdcli remove
 
   echo "Installing Shairport-Sync"
-  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-3.0.2-arm.tar.gz
-  tar xf shairport-sync-3.0.2-arm.tar.gz
-  rm /shairport-sync-3.0.2-arm.tar.gz
+  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync_3.3.5-arm.deb
+  dpkg -i shairport-sync_3.3.5-arm.deb
+  rm shairport-sync_3.3.5-arm.deb
 
   echo "Installing Shairport-Sync Metadata Reader"
   wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-metadata-reader-arm.tar.gz
@@ -380,9 +380,9 @@ elif [ $(uname -m) = i686 ] || [ $(uname -m) = x86 ] || [ $(uname -m) = x86_64 ]
   rm /libupnp6_1.6.20.jfd5-1_i386.deb
 
   echo "Installing Shairport-Sync"
-  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-3.0.2-i386.tar.gz
-  tar xf shairport-sync-3.0.2-i386.tar.gz
-  rm /shairport-sync-3.0.2-i386.tar.gz
+  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync_3.3.5-i386.deb
+  dpkg -i shairport-sync_3.3.5-i386.deb
+  rm shairport-sync_3.3.5-i386.deb
 
   echo "Installing Shairport-Sync Metadata Reader"
   wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-metadata-reader-i386.tar.gz
@@ -480,6 +480,9 @@ systemctl disable ssh.service
 echo "Enable Volumio SSH enabler"
 ln -s /lib/systemd/system/volumiossh.service /etc/systemd/system/multi-user.target.wants/volumiossh.service
 
+echo "Enable Volumio Log Rotation Service"
+ln -s /lib/systemd/system/volumiologrotate.service /etc/systemd/system/multi-user.target.wants/volumiologrotate.service
+
 echo "Setting Mpd to SystemD instead of Init"
 update-rc.d mpd remove
 systemctl enable mpd.service
@@ -495,6 +498,13 @@ systemctl disable dhcpd.service
 echo "Linking Volumio Command Line Client"
 ln -s /volumio/app/plugins/system_controller/volumio_command_line_client/volumio.sh /usr/local/bin/volumio
 chmod a+x /usr/local/bin/volumio
+
+echo "Adding Shairport-Sync User"
+getent group shairport-sync &>/dev/null || groupadd -r shairport-sync >/dev/null
+getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/bin/nologin -G audio shairport-sync >/dev/null
+
+echo "Semistandard"
+ln -s /volumio/node_modules/semistandard/bin/cmd.js /bin/semistandard
 
 #####################
 #Audio Optimizations#-----------------------------------------

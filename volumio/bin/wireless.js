@@ -19,7 +19,7 @@ var ifconfigWlan = "ifconfig " + wlan + " up";
 var ifdeconfig = "sudo ip addr flush dev " + wlan + " && sudo ifconfig " + wlan + " down";
 var execSync = require('child_process').execSync;
 var ifconfig = require('/volumio/app/plugins/system_controller/network/lib/ifconfig.js');
-var conf = {};
+var wirelessEstablishedOnceFlagFile = '/data/flagfiles/wirelessEstablishedOnce';
 if (debug) {
 	var wpasupp = "wpa_supplicant -d -s -B -Dnl80211,wext -c/etc/wpa_supplicant/wpa_supplicant.conf -i" + wlan;
 } else {
@@ -79,7 +79,7 @@ function launch(fullprocess, name, sync, callback) {
 
 function startHotspot() {
     stopHotspot(function(err) {
-        if (conf != undefined && conf.enable_hotspot != undefined && conf.enable_hotspot.value != undefined && !conf.enable_hotspot.value) {
+        if (isHotspotDisabled()) {
             console.log('Hotspot is disabled, not starting it');
             launch(ifconfigWlan, "configwlanup", true, function(err) {
                 logger("ifconfig " + err);
@@ -140,7 +140,7 @@ function startFlow() {
         var directhotspot = true;
     }
 
-    if (conf != undefined && conf.wireless_enabled != undefined && conf.wireless_enabled.value != undefined && !conf.wireless_enabled.value) {
+    if (isWirelessDisabled()) {
         console.log('Wireless Networking DISABLED, not starting wireless flow');
     } else if (directhotspot){
         startHotspot(function () {
@@ -150,7 +150,7 @@ function startFlow() {
         console.log("Start wireless flow");
         startAP(function () {
             console.log("Start ap");
-            lesstimer = setInterval(function () {
+            lesstimer = setInterval(()=> {
                 actualTime += pollingTime;
                 if (wpaerr > 0) {
                     actualTime = totalSecondsForConnection + 1;
@@ -158,15 +158,16 @@ function startFlow() {
                 
                 if (actualTime > totalSecondsForConnection) {
                     console.log("Overtime, starting plan B");
-                    if (conf != undefined && conf.hotspot_fallback != undefined && conf.hotspot_fallback.value != undefined && conf.hotspot_fallback.value) {
+                    if (hotspotFallbackCondition()) {
                         console.log('STARTING HOTSPOT');
                         apstopped = 1;
                         clearTimeout(lesstimer);
                         stopAP(function () {
-                            setTimeout(function () {
-                                startHotspot(function () {
-
-
+                            setTimeout(()=> {
+                                startHotspot(function (err) {
+                                    if(err) {
+                                        console.log('Could not start Hotspot Fallback: ' + err);
+                                    }
                                 });
                             }, settleTime);
                         });
@@ -201,6 +202,7 @@ function startFlow() {
                                     wstatus("ap");
                                     clearTimeout(lesstimer);
                                     restartAvahi();
+                                    saveWirelessConnectionEstablished();
                                 }
                             }
                         });
@@ -228,17 +230,7 @@ if (process.argv.length < 2) {
     console.log("Use: start|stop");
 } else {
     var args = process.argv[2];
-    console.log('WIRELESS DAEMON: ' + args);
-    try {
-        conf = fs.readJsonSync('/data/configuration/system_controller/network/config.json');
-        console.log('WIRELESS: Loaded configuration');
-        if (debug) {
-        	console.log('WIRELESS CONF: ' + JSON.stringify(conf))
-	}
-    } catch (e) {
-        console.log('WIRELESS: First boot');
-        conf = fs.readJsonSync('/volumio/app/plugins/system_controller/network/config.json');
-    }
+    logger('WIRELESS DAEMON: ' + args);
 
     switch (args) {
         case "start":
@@ -270,4 +262,72 @@ function logger(msg) {
     if (debug) {
         console.log(msg)
     }
+}
+
+function getWirelessConfiguration() {
+    try {
+        var conf = fs.readJsonSync('/data/configuration/system_controller/network/config.json');
+        logger('WIRELESS: Loaded configuration');
+        logger('WIRELESS CONF: ' + JSON.stringify(conf));
+    } catch (e) {
+        logger('WIRELESS: First boot');
+        var conf = fs.readJsonSync('/volumio/app/plugins/system_controller/network/config.json');
+    }
+    return conf
+}
+
+function isHotspotDisabled() {
+    var hotspotConf = getWirelessConfiguration();
+    var hotspotDisabled = false;
+
+    if (hotspotConf !== undefined && hotspotConf.enable_hotspot !== undefined && hotspotConf.enable_hotspot.value !== undefined && !hotspotConf.enable_hotspot.value) {
+        hotspotDisabled = true;
+    }
+
+    return hotspotDisabled
+}
+
+function isWirelessDisabled() {
+    var wirelessConf = getWirelessConfiguration();
+    var wirelessDisabled = false;
+
+    if (wirelessConf !== undefined && wirelessConf.wireless_enabled !== undefined && wirelessConf.wireless_enabled.value !== undefined && !wirelessConf.wireless_enabled.value) {
+        wirelessDisabled = true;
+    }
+
+    return wirelessDisabled
+}
+
+function hotspotFallbackCondition() {
+    var hotspotFallbackConf = getWirelessConfiguration();
+    var startHotspotFallback = false;
+
+    if (hotspotFallbackConf !== undefined && hotspotFallbackConf.hotspot_fallback !== undefined && hotspotFallbackConf.hotspot_fallback.value !== undefined && hotspotFallbackConf.hotspot_fallback.value) {
+        startHotspotFallback = true;
+    }
+
+    if (!startHotspotFallback && !hasWirelessConnectionBeenEstablishedOnce()) {
+        startHotspotFallback = true;
+    }
+
+    return startHotspotFallback
+}
+
+function saveWirelessConnectionEstablished() {
+    try {
+        fs.ensureFileSync(wirelessEstablishedOnceFlagFile)
+    } catch (e) {
+        logger('Could not save Wireless Connection Established: ' + e);
+    }
+}
+
+function hasWirelessConnectionBeenEstablishedOnce() {
+    var wirelessEstablished = false;
+    try {
+        if (fs.existsSync(wirelessEstablishedOnceFlagFile)) {
+            wirelessEstablished = true;
+        }
+    } catch(err) {}
+
+    return wirelessEstablished
 }
