@@ -58,8 +58,8 @@ fi
 
 echo "Creating boot and rootfs filesystems"
 mkfs -t vfat -n VBOOT "${BOOT_PART}"
-mkfs -F -t ext4 -L VIMAGE "${SYS_PART}"
-mkfs -F -t ext4 -L VSTORAGE "${DATA_PART}"
+mkfs -F -t ext4 -O ^metadata_csum,^64bit -L VIMAGE "${SYS_PART}" || mkfs -F -t ext4 -L VIMAGE "${SYS_PART}"
+mkfs -F -t ext4 -O ^metadata_csum,^64bit -L VDATA "${DATA_PART}" || mkfs -F -t ext4 -L VDATA "${DATA_PART}"
 sync
 
 echo "Preparing for the vims kernel/ platform files"
@@ -70,45 +70,41 @@ then
 	cd platform-khadas
 	if [ -f vims.tar.xz ]; then
 	   echo "Found a new tarball, unpacking..."
-	   [ -d vims ] || rm -r vims	
+	   [ -d vims ] || rm -r vims
 	   tar xfJ vims.tar.xz
-	   rm vims.tar.xz 
+	   rm vims.tar.xz
 	fi
 	cd ..
 else
 	echo "Clone vims files from repo"
 	mkdir platform-khadas
     cd platform-khadas
-	wget https://github.com/gkkpch/platform-khadas/raw/master/vims.tar.xz
+	wget https://github.com/volumio/platform-khadas/raw/master/vims.tar.xz
 	echo "Unpacking the platform files"
 	tar xfJ vims.tar.xz
 	rm vims.tar.xz
 	cd ..
 fi
 
-echo "Installing u-boot"
-
+echo "Use $MODEL u-boot naming as Krescue also needs it.."
 case $MODEL in
-  kvim1)
-    echo "   for khadas vim1..."
-	dd if=platform-khadas/vims/uboot/u-boot.vim1.sd.bin of=${LOOP_DEV} bs=444 count=1 conv=fsync
-	dd if=platform-khadas/vims/uboot/u-boot.vim1.sd.bin of=${LOOP_DEV} bs=512 skip=1 seek=1 conv=fsync > /dev/null 2>&1
-	;;
-  kvim2)
-	echo "   for khadas vim2..."
-	dd if=platform-khadas/vims/uboot/u-boot.vim2.sd.bin of=${LOOP_DEV} bs=444 count=1 conv=fsync
-	dd if=platform-khadas/vims/uboot/u-boot.vim2.sd.bin of=${LOOP_DEV} bs=512 skip=1 seek=1 conv=fsync > /dev/null 2>&1;;
-  kvim3)
-	echo "   for khadas vim3..."
-	dd if=platform-khadas/vims/uboot/u-boot.vim3.sd.bin of=${LOOP_DEV} bs=444 count=1 conv=fsync
-	dd if=platform-khadas/vims/uboot/u-boot.vim3.sd.bin of=${LOOP_DEV} bs=512 skip=1 seek=1 conv=fsync > /dev/null 2>&1;;
-  kvim3l)
-	echo "   for khadas vim3l..."
-	dd if=platform-khadas/vims/uboot/u-boot.vim3l.sd.bin of=${LOOP_DEV} bs=444 count=1 conv=fsync
-	dd if=platform-khadas/vims/uboot/u-boot.vim3l.sd.bin of=${LOOP_DEV} bs=512 skip=1 seek=1 conv=fsync > /dev/null 2>&1
-	;;
+  kvim1 )
+  BOARD=VIM1
+  ;;
+  kvim2 )
+  BOARD=VIM2
+  ;;
+  kvim3 )
+  BOARD=VIM3
+  ;;
+  kvim3l )
+  BOARD=VIM3L
+  ;;
 esac
 
+echo "Installing u-boot u-boot.$BOARD.sd.bin"
+dd if=platform-khadas/vims/uboot/u-boot.$BOARD.sd.bin of=${LOOP_DEV} bs=444 count=1 conv=fsync
+dd if=platform-khadas/vims/uboot/u-boot.$BOARD.sd.bin of=${LOOP_DEV} bs=512 skip=1 seek=1 conv=fsync > /dev/null 2>&1
 
 echo "Preparing for Volumio rootfs"
 if [ -d /mnt ]
@@ -140,9 +136,12 @@ echo "Copying boot files"
 cp platform-khadas/vims/boot/Image /mnt/volumio/rootfs/boot
 cp platform-khadas/vims/boot/config* /mnt/volumio/rootfs/boot
 cp platform-khadas/vims/boot/boot.ini /mnt/volumio/rootfs/boot
+cp platform-khadas/vims/boot/env.txt /mnt/volumio/rootfs/boot
+cp platform-khadas/vims/boot/env.txt.header.tpl /mnt/volumio/rootfs/boot
 cp -r platform-khadas/vims/boot/dtb /mnt/volumio/rootfs/boot
 echo "Keeping copies of u-boot files"
 cp -r platform-khadas/vims/uboot /mnt/volumio/rootfs/boot
+cp -r platform-khadas/vims/uboot-mainline /mnt/volumio/rootfs/boot
 
 echo "Copying modules"
 cp -Rp platform-khadas/vims/lib/modules /mnt/volumio/rootfs/lib/
@@ -173,9 +172,9 @@ if [ "$MODEL" = kvim3 ] || [ "$MODEL" = kvim3l ]; then
 	mv /mnt/volumio/rootfs/lib/firmware/brcm/fw_bcm4359c0_ag_ap6398s.bin /mnt/volumio/rootfs/lib/firmware/brcm/fw_bcm4359c0_ag.bin
 	mv /mnt/volumio/rootfs/lib/firmware/brcm/nvram_ap6398s.txt /mnt/volumio/rootfs/lib/firmware/brcm/nvram_ap6359sa.txt
 	mv /mnt/volumio/rootfs/lib/firmware/brcm/BCM4359C0_ap6398s.hcd /mnt/volumio/rootfs/lib/firmware/brcm/BCM4359C0.hcd
-	cp /platform-khadas/vims/var/lib/alsa/asound.state.vim3-3l /mnt/volumio/rootfs/var/lib/alsa/asound.state
-else
-	cp /platform-khadas/vims/var/lib/alsa/asound.state.vim1-2 /mnt/volumio/rootfs/var/lib/alsa/asound.state
+#	cp platform-khadas/vims/var/lib/alsa/asound.state.vim3-3l /mnt/volumio/rootfs/var/lib/alsa/asound.state
+#else
+#	cp platform-khadas/vims/var/lib/alsa/asound.state.vim1-2 /mnt/volumio/rootfs/var/lib/alsa/asound.state
 fi
 
 echo "Preparing to run chroot for more Khadas ${MODEL} configuration"
