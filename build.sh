@@ -178,12 +178,14 @@ if [ -n "$BUILD" ]; then
   else
       git clone --depth 1 -b master --single-branch https://github.com/volumio/Volumio2.git build/$BUILD/root/volumio
   fi
+  echo "Pre-commit hooks"
+  echo '#!/bin/sh
+  # Pre-commit hook, uncomment when finished linting all codebase
+  #npm run lint-staged' > /volumio/.git/hooks/pre-commit
   echo 'Cloning Volumio UI'
   git clone --depth 1 -b dist --single-branch https://github.com/volumio/Volumio2-UI.git "build/$BUILD/root/volumio/http/www"
   echo 'Cloning Volumio3 UI'
   git clone --depth 1 -b dist3 --single-branch https://github.com/volumio/Volumio2-UI.git "build/$BUILD/root/volumio/http/www3"
-  rm -rf build/$BUILD/root/volumio/http/www/.git
-  rm -rf build/$BUILD/root/volumio/http/www3/.git
   echo "Adding os-release infos"
   {
     echo "VOLUMIO_BUILD_VERSION=\"$(git rev-parse HEAD)\""
@@ -191,6 +193,8 @@ if [ -n "$BUILD" ]; then
     echo "VOLUMIO_BE_VERSION=\"$(git --git-dir "build/$BUILD/root/volumio/.git" rev-parse HEAD)\""
     echo "VOLUMIO_ARCH=\"${BUILD}\""
   } >> "build/$BUILD/root/etc/os-release"
+  rm -rf build/$BUILD/root/volumio/http/www/.git
+  rm -rf build/$BUILD/root/volumio/http/www3/.git
   
   if [ ! "$BUILD" = x86 ]; then
     chroot "build/$BUILD/root" /bin/bash -x <<'EOF'
@@ -247,6 +251,10 @@ case "$DEVICE" in
   odroidc2) echo 'Writing Odroid-C2 Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/odroidc2image.sh -v "$VERSION" -p "$PATCH" -a armv7
+    ;;
+  odroidc4) echo 'Writing Odroid-C4 Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/odroidc4image.sh -v "$VERSION" -p "$PATCH" -a armv7
     ;;
   odroidn2) echo 'Writing Odroid-N2 Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
@@ -370,6 +378,10 @@ case "$DEVICE" in
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/motivoimage.sh -v "$VERSION" -p "$PATCH" -a armv7
     ;;
+  mp1) echo 'Writing Motivo Image File'
+    check_os_release "armv7" "$VERSION" "$DEVICE"
+    sh scripts/kvimsimage.sh -v "$VERSION" -p "$PATCH" -a armv7 -m ${DEVICE}
+    ;;
   primo) echo 'Writing Primo Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/primoimage.sh -v "$VERSION" -p "$PATCH" -a armv7
@@ -382,7 +394,7 @@ case "$DEVICE" in
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/hemx8mminiimage.sh -v "$VERSION" -p "$PATCH" -a armv7
     ;;
-  kvim1|kvim2|kvim3|kvim3l) echo 'Writing VIM1 Image File'
+  kvim1|kvim2|kvim3) echo 'Writing Khadas Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/kvimsimage.sh -v "$VERSION" -p "$PATCH" -a armv7 -m ${DEVICE}
 

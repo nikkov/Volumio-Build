@@ -62,7 +62,7 @@ echo ""
 #Adding Main user Volumio
 echo "Adding Volumio User"
 groupadd volumio
-useradd -c volumio -d /home/volumio -m -g volumio -G adm,dialout,cdrom,floppy,audio,dip,video,plugdev,netdev,lp -s /bin/bash -p '$6$tRtTtICB$Ki6z.DGyFRopSDJmLUcf3o2P2K8vr5QxRx5yk3lorDrWUhH64GKotIeYSNKefcniSVNcGHlFxZOqLM6xiDa.M.' volumio
+useradd -c volumio -d /home/volumio -m -g volumio -G adm,dialout,cdrom,floppy,audio,dip,video,plugdev,netdev,lp,systemd-journal -s /bin/bash -p '$6$tRtTtICB$Ki6z.DGyFRopSDJmLUcf3o2P2K8vr5QxRx5yk3lorDrWUhH64GKotIeYSNKefcniSVNcGHlFxZOqLM6xiDa.M.' volumio
 
 #Setting Root Password
 echo 'root:$1$JVNbxLRo$pNn5AmZxwRtWZ.xF.8xUq/' | chpasswd -e
@@ -260,9 +260,9 @@ if [ $(uname -m) = armv7l ] || [ $(uname -m) = aarch64 ]; then
   update-rc.d upmpdcli remove
 
   echo "Installing Shairport-Sync"
-  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync_3.3.5-arm.deb
-  dpkg -i shairport-sync_3.3.5-arm.deb
-  rm shairport-sync_3.3.5-arm.deb
+  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync_3.3.6-arm.deb
+  dpkg -i shairport-sync_3.3.6-arm.deb
+  rm shairport-sync_3.3.6-arm.deb
 
   echo "Installing Shairport-Sync Metadata Reader"
   wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-metadata-reader-arm.tar.gz
@@ -380,9 +380,9 @@ elif [ $(uname -m) = i686 ] || [ $(uname -m) = x86 ] || [ $(uname -m) = x86_64 ]
   rm /libupnp6_1.6.20.jfd5-1_i386.deb
 
   echo "Installing Shairport-Sync"
-  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync_3.3.5-i386.deb
-  dpkg -i shairport-sync_3.3.5-i386.deb
-  rm shairport-sync_3.3.5-i386.deb
+  wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync_3.3.6-i386.deb
+  dpkg -i shairport-sync_3.3.6-i386.deb
+  rm shairport-sync_3.3.6-i386.deb
 
   echo "Installing Shairport-Sync Metadata Reader"
   wget http://repo.volumio.org/Volumio2/Binaries/shairport-sync-metadata-reader-i386.tar.gz

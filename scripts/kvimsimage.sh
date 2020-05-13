@@ -97,7 +97,7 @@ case $MODEL in
   kvim3 )
   BOARD=VIM3
   ;;
-  kvim3l )
+  mp1 )
   BOARD=VIM3L
   ;;
 esac
@@ -136,9 +136,10 @@ echo "Copying boot files"
 cp platform-khadas/vims/boot/Image /mnt/volumio/rootfs/boot
 cp platform-khadas/vims/boot/config* /mnt/volumio/rootfs/boot
 cp platform-khadas/vims/boot/boot.ini /mnt/volumio/rootfs/boot
+cp platform-khadas/vims/boot/env.system.txt /mnt/volumio/rootfs/boot
 cp platform-khadas/vims/boot/env.txt /mnt/volumio/rootfs/boot
-cp platform-khadas/vims/boot/env.txt.header.tpl /mnt/volumio/rootfs/boot
 cp -r platform-khadas/vims/boot/dtb /mnt/volumio/rootfs/boot
+
 echo "Keeping copies of u-boot files"
 cp -r platform-khadas/vims/uboot /mnt/volumio/rootfs/boot
 cp -r platform-khadas/vims/uboot-mainline /mnt/volumio/rootfs/boot
@@ -159,6 +160,31 @@ cp -Rp platform-khadas/vims/usr/* /mnt/volumio/rootfs/usr
 echo "Adding specific wlan firmware" 
 cp -r platform-khadas/vims/hwpacks/wlan-firmware/brcm/ /mnt/volumio/rootfs/lib/firmware
 
+echo "Copying rc.local"
+cp platform-khadas/vims/etc/rc.local /mnt/volumio/rootfs/etc
+
+echo "Copying triggerhappy configuration"
+cp -R platform-khadas/vims/etc/triggerhappy /mnt/volumio/rootfs/etc
+
+#TODO ===> remove when reboot for VIM3/MP1 resolved
+echo "Adding temporary fix for reboot fix with VIM3 or MP1"
+if [ "$MODEL" = kvim3 ] || [ "$MODEL" = mp1 ]; then
+    mv /mnt/volumio/rootfs/sbin/ifconfig /mnt/volumio/rootfs/opt
+    mv /mnt/volumio/rootfs/bin/ip /mnt/volumio/rootfs/opt
+    cp platform-khadas/vims/opt/ifconfig.fix /mnt/volumio/rootfs/sbin/ifconfig
+    cp platform-khadas/vims/opt/ip.fix /mnt/volumio/rootfs/bin/ip
+fi
+
+#TODO: remove the mp1 restriction when reboot works
+if [ ! "$MODEL" = mp1 ]; then
+	echo "Copying khadas system halt service"
+	cp -R platform-khadas/vims/etc/systemd /mnt/volumio/rootfs/etc
+	cp platform-khadas/vims/opt/poweroff /mnt/volumio/rootfs/opt/poweroff
+else
+#do not use the system-halt.service for mp1 yet
+    cp platform-khadas/vims/etc/rc.local.mp1 /mnt/volumio/rootfs/etc/rc.local
+fi
+
 echo "Adding Meson video firmware"
 cp -r platform-khadas/vims/hwpacks/video-firmware/Amlogic/video /mnt/volumio/rootfs/lib/firmware/
 cp -r platform-khadas/vims/hwpacks/video-firmware/Amlogic/meson /mnt/volumio/rootfs/lib/firmware/
@@ -166,8 +192,8 @@ cp -r platform-khadas/vims/hwpacks/video-firmware/Amlogic/meson /mnt/volumio/roo
 echo "Adding Wifi & Bluetooth firmware and helpers"
 cp platform-khadas/vims/hwpacks/bluez/hciattach-armhf /mnt/volumio/rootfs/usr/local/bin/hciattach
 cp platform-khadas/vims/hwpacks/bluez/brcm_patchram_plus-armhf /mnt/volumio/rootfs/usr/local/bin/brcm_patchram_plus
-if [ "$MODEL" = kvim3 ] || [ "$MODEL" = kvim3l ]; then
-	echo "   fixing AP6359SA and AP6398S using the same chipid and rev for VIM3/VIM3L"
+if [ "$MODEL" = kvim3 ] || [ "$MODEL" = mp1 ]; then
+	echo "   fixing AP6359SA and AP6398S using the same chipid and rev for VIM3/MP1"
 	mv /mnt/volumio/rootfs/lib/firmware/brcm/fw_bcm4359c0_ag_apsta_ap6398s.bin /mnt/volumio/rootfs/lib/firmware/brcm/fw_bcm4359c0_ag_apsta.bin
 	mv /mnt/volumio/rootfs/lib/firmware/brcm/fw_bcm4359c0_ag_ap6398s.bin /mnt/volumio/rootfs/lib/firmware/brcm/fw_bcm4359c0_ag.bin
 	mv /mnt/volumio/rootfs/lib/firmware/brcm/nvram_ap6398s.txt /mnt/volumio/rootfs/lib/firmware/brcm/nvram_ap6359sa.txt
@@ -221,6 +247,13 @@ echo "Removing chroot files"
 rm /mnt/volumio/rootfs/kvimsconfig.sh
 rm /mnt/volumio/rootfs/root/init /mnt/volumio/rootfs/root/init.sh
 rm /mnt/volumio/rootfs/usr/local/sbin/mkinitramfs-custom.sh
+
+UIVARIANT_FILE=/mnt/volumio/rootfs/UIVARIANT	
+if [ -f "${UIVARIANT_FILE}" ]; then	
+    echo "Starting variant.js"	
+    node variant.js	
+    rm $UIVARIANT_FILE	
+fi
 
 echo "Unmounting chroot temp devices"
 umount -l /mnt/volumio/rootfs/dev
