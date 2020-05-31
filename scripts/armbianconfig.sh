@@ -81,6 +81,20 @@ wget -P /tmp http://ftp.debian.org/debian/pool/main/d/device-tree-compiler/devic
 dpkg -i /tmp/device-tree-compiler_1.4.7-3_armhf.deb
 rm /tmp/device-tree-compiler_1.4.7-3_armhf.deb
 
+
+if [ "$DEVICE" = "cubietruck" ]; then
+echo "Install ACPI and power button support"
+apt-get install -y acpid
+echo "event=button/power
+action=/etc/acpi/powerbtn.sh %e" >>/etc/acpi/events/power
+
+echo "exec poweroff" >>/etc/acpi/powerbtn.sh
+chmod +x /etc/acpi/powerbtn.sh
+
+echo "exec acpid -c /etc/acpi/events -s /var/run/acpid.socket" >>/etc/init/acpid.conf
+fi
+
+
 #echo "adding gpio group and udev rules"
 #groupadd -f --system gpio
 #usermod -aG gpio volumio
