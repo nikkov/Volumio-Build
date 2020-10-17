@@ -82,7 +82,7 @@ dpkg -i /tmp/device-tree-compiler_1.4.7-3_armhf.deb
 rm /tmp/device-tree-compiler_1.4.7-3_armhf.deb
 
 
-if [ "$DEVICE" = "cubietruck" ]; then
+#if [ "$DEVICE" = "cubietruck" ]; then
 echo "Install ACPI and power button support"
 apt-get install -y acpid
 echo "event=button/power
@@ -92,7 +92,7 @@ echo "exec poweroff" >>/etc/acpi/powerbtn.sh
 chmod +x /etc/acpi/powerbtn.sh
 
 echo "exec acpid -c /etc/acpi/events -s /var/run/acpid.socket" >>/etc/init/acpid.conf
-fi
+#fi
 
 
 #echo "adding gpio group and udev rules"
