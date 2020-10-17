@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Default build for Debian 32bit (to be changed to armv8)
+# Build Architecture Debian 32bit 
 ARCH="armv7"
 
 while getopts ":v:p:a:" opt; do
@@ -18,7 +18,7 @@ while getopts ":v:p:a:" opt; do
 done
 
 BUILDDATE=$(date -I)
-IMG_FILE="Volumio${VERSION}-${BUILDDATE}-odroidn2.img"
+IMG_FILE="Volumio${VERSION}-${BUILDDATE}-nanopineo3.img"
 
 if [ "$ARCH" = arm ]; then
   DISTRO="Raspbian"
@@ -26,15 +26,16 @@ else
   DISTRO="Debian 32bit"
 fi
 
-echo "Creating Image File ${IMG_FILE} with $DISTRO rootfs"
+echo "Creating Image File ${IMG_FILE} with ${DISTRO} rootfs"
+
 dd if=/dev/zero of=${IMG_FILE} bs=1M count=2800
 
 echo "Creating Image Bed"
 LOOP_DEV=`losetup -f --show ${IMG_FILE}`
-
+# Note: leave the first 20Mb free for the firmware (effectively needs ~16Mb)
 parted -s "${LOOP_DEV}" mklabel msdos
-parted -s "${LOOP_DEV}" mkpart primary fat32 1 64
-parted -s "${LOOP_DEV}" mkpart primary ext3 65 2500
+parted -s "${LOOP_DEV}" mkpart primary fat32 20 84
+parted -s "${LOOP_DEV}" mkpart primary ext3 84 2500
 parted -s "${LOOP_DEV}" mkpart primary ext3 2500 100%
 parted -s "${LOOP_DEV}" set 1 boot on
 parted -s "${LOOP_DEV}" print
@@ -44,7 +45,9 @@ kpartx -s -a "${LOOP_DEV}"
 BOOT_PART=`echo /dev/mapper/"$( echo ${LOOP_DEV} | sed -e 's/.*\/\(\w*\)/\1/' )"p1`
 SYS_PART=`echo /dev/mapper/"$( echo ${LOOP_DEV} | sed -e 's/.*\/\(\w*\)/\1/' )"p2`
 DATA_PART=`echo /dev/mapper/"$( echo ${LOOP_DEV} | sed -e 's/.*\/\(\w*\)/\1/' )"p3`
-
+echo "Using: " ${BOOT_PART}
+echo "Using: " ${SYS_PART}
+echo "Using: " ${DATA_PART}
 if [ ! -b "${BOOT_PART}" ]
 then
 	echo "${BOOT_PART} doesn't exist"
@@ -53,38 +56,41 @@ fi
 
 echo "Creating boot and rootfs filesystems"
 mkfs -t vfat -n BOOT "${BOOT_PART}"
-mkfs -F -t ext4 -L volumio "${SYS_PART}"
-mkfs -F -t ext4 -L volumio_data "${DATA_PART}"
+mkfs -F -t ext4 -O ^metadata_csum,^64bit -L volumio "${SYS_PART}" || mkfs -F -t ext4 -L volumio "${SYS_PART}"
+mkfs -F -t ext4 -O ^metadata_csum,^64bit -L volumio_data "${DATA_PART}" || mkfs -F -t ext4 -L volumio_data "${DATA_PART}"
 sync
 
-echo "Preparing for the Odroid N2 kernel/ platform files"
-if [ -d ./platform-odroid/odroidn2 ]
+echo "Preparing for the nanopi-neo3 kernel/ platform files"
+if [ -d platform-nanopi/nanopi-neo3 ]
 then
 	echo "Platform folder already exists - keeping it"
-    # if you really want to re-clone from the repo, then delete the platform-odroid folder
-    # that will refresh all the odroid platforms, see below
-	cd platform-odroid
-	if [ -f odroidn2.tar.xz ]; then
+    # if you really want to re-clone from the repo, then delete the platform-nanopi folder
+    # that will refresh the platform files, see below
+    cd platform-nanopi
+	if [ -f nanopi-neo3.tar.xz ]; then
 	   echo "Found a new tarball, unpacking..."
-	   rm -r odroidn2
-	   tar xfJ odroidn2.tar.xz
-	   rm odroidn2.tar.xz
+	   rm -r nanopi-neo3
+	   tar xfJ nanopi-neo3.tar.xz
+	   rm nanopi-neo3.tar.xz
 	fi
 	cd ..
 else
-	echo "Getting sthe Odroid N2 files from repo"
-	mkdir platform-odroid
-	cd platform-odroid
-	[ ! -f odroidn2.tar.xz ] || rm odroidn2.tar.xz
-	wget https://github.com/volumio/platform-odroid/raw/master/odroidn2.tar.xz
-	echo "Unpacking the N2 platform files"
-	tar xfJ odroidn2.tar.xz
-	rm odroidn2.tar.xz
+    if [ ! -d platform-nanopi ]; then
+	  mkdir platform-nanopi
+	fi
+	cd platform-nanopi
+	[ ! -f nanopi-neo3.tar.xz ] || rm nanopi-neo3.tar.xz
+	wget https://github.com/volumio/platform-nanopi/raw/master/nanopi-neo3.tar.xz
+	echo "Unpacking the Neo3 platform files"
+	tar xfJ nanopi-neo3.tar.xz
+	rm nanopi-neo3.tar.xz
 	cd ..
 fi
 
 echo "Copying the bootloader"
-dd if=platform-odroid/odroidn2/uboot/u-boot.bin of=${LOOP_DEV} conv=fsync bs=512 seek=1
+dd if=platform-nanopi/nanopi-neo3/u-boot/idbloader.bin of=${LOOP_DEV} seek=64 conv=notrunc
+dd if=platform-nanopi/nanopi-neo3/u-boot/uboot.img of=${LOOP_DEV} seek=16384 conv=notrunc
+dd if=platform-nanopi/nanopi-neo3/u-boot/trust.bin of=${LOOP_DEV} seek=24576 conv=notrunc
 sync
 
 echo "Preparing for Volumio rootfs"
@@ -107,22 +113,21 @@ echo "Creating mount point for the images partition"
 mkdir /mnt/volumio/images
 mount -t ext4 "${SYS_PART}" /mnt/volumio/images
 mkdir /mnt/volumio/rootfs
-mkdir -p /mnt/volumio/rootfs/boot/amlogic
+mkdir /mnt/volumio/rootfs/boot
 mount -t vfat "${BOOT_PART}" /mnt/volumio/rootfs/boot
 
 echo "Copying Volumio RootFs"
 cp -pdR build/$ARCH/root/* /mnt/volumio/rootfs
-echo "Copying OdroidN2 boot files"
-cp -dR platform-odroid/odroidn2/boot/* /mnt/volumio/rootfs/boot
 
-echo "Copying OdroidN2 modules and firmware"
-cp -pdR platform-odroid/odroidn2/lib/modules /mnt/volumio/rootfs/lib/
+echo "Copying nanopineo3 boot files"
+cp -R platform-nanopi/nanopi-neo3/boot/* /mnt/volumio/rootfs/boot
 
-echo "Copying rc.local for performance tweaks"
-cp platform-odroid/odroidn2/etc/rc.local /mnt/volumio/rootfs/etc
+echo "Copying nanopineo3 modules and firmware"
+cp -pdR platform-nanopi/nanopi-neo3/lib/modules /mnt/volumio/rootfs/lib/
+cp -R platform-nanopi/nanopi-neo3/firmware/* /mnt/volumio/rootfs/lib/firmware
 
-echo "Preparing to run chroot for more Odroid-N2 configuration"
-cp scripts/odroidn2config.sh /mnt/volumio/rootfs
+echo "Preparing to run chroot for more nanopineo3 configuration"
+cp scripts/nanopineo3config.sh /mnt/volumio/rootfs
 cp scripts/initramfs/init.nextarm /mnt/volumio/rootfs/root/init
 cp scripts/initramfs/mkinitramfs-custom.sh /mnt/volumio/rootfs/usr/local/sbin
 #copy the scripts for updating from usb
@@ -131,7 +136,6 @@ wget -P /mnt/volumio/rootfs/root http://repo.volumio.org/Volumio2/Binaries/volum
 mount /dev /mnt/volumio/rootfs/dev -o bind
 mount /proc /mnt/volumio/rootfs/proc -t proc
 mount /sys /mnt/volumio/rootfs/sys -t sysfs
-
 echo $PATCH > /mnt/volumio/rootfs/patch
 
 echo "UUID_DATA=$(blkid -s UUID -o value ${DATA_PART})
@@ -155,7 +159,7 @@ fi
 
 chroot /mnt/volumio/rootfs /bin/bash -x <<'EOF'
 su -
-/odroidn2config.sh
+/nanopineo3config.sh
 EOF
 
 UIVARIANT_FILE=/mnt/volumio/rootfs/UIVARIANT
@@ -165,20 +169,16 @@ if [ -f "${UIVARIANT_FILE}" ]; then
     rm $UIVARIANT_FILE
 fi
 
-echo "Copying LIRC configuration files for HK stock remote"
-cp platform-odroid/odroidn2/etc/lirc/lircd.conf /mnt/volumio/rootfs/etc/lirc
-cp platform-odroid/odroidn2/etc/lirc/hardware.conf /mnt/volumio/rootfs/etc/lirc
-cp platform-odroid/odroidn2/etc/lirc/lircrc /mnt/volumio/rootfs/etc/lirc
+#cleanup
+rm /mnt/volumio/rootfs/root/init.sh /mnt/volumio/rootfs/nanopineo3config.sh /mnt/volumio/rootfs/root/init
 
-echo "Cleaning up temp files"
-rm /mnt/volumio/rootfs/odroidn2config.sh /mnt/volumio/rootfs/root/init.sh /mnt/volumio/rootfs/root/init
-
-echo "Unmounting temp devices"
+echo "Unmounting Temp devices"
 umount -l /mnt/volumio/rootfs/dev
 umount -l /mnt/volumio/rootfs/proc
 umount -l /mnt/volumio/rootfs/sys
 
-echo "==> Odroid-N2 device installed"
+echo "==> nanopineo3 device installed"
+
 sync
 
 echo "Finalizing Rootfs creation"

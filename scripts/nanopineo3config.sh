@@ -7,39 +7,31 @@ echo "Initializing.."
 . init.sh
 
 echo "Creating \"fstab\""
-echo "# ROCK64 fstab" > /etc/fstab
+echo "# NanoPI Neo3 fstab" > /etc/fstab
 echo "" >> /etc/fstab
 echo "proc            /proc           proc    defaults        0       0
-UUID=${UUID_BOOT} /boot           vfat    defaults,utf8,user,rw,umask=111,dmask=000        0       1
+/dev/mmcblk0p1 /boot           vfat    defaults,utf8,user,rw,umask=111,dmask=000        0       1
 tmpfs   /var/log                tmpfs   size=20M,nodev,uid=1000,mode=0777,gid=4, 0 0
 tmpfs   /var/spool/cups         tmpfs   defaults,noatime,mode=0755 0 0
 tmpfs   /var/spool/cups/tmp     tmpfs   defaults,noatime,mode=0755 0 0
 tmpfs   /tmp                    tmpfs   defaults,noatime,mode=0755 0 0
 tmpfs   /dev/shm                tmpfs   defaults,nosuid,noexec,nodev        0 0
-" > /etc/fstab
+" >> /etc/fstab
 
 echo "Creating boot config"
-echo "label kernel-4.4
+echo "label kernel-5.4
     kernel /Image
-    fdt /rk3328-rock64.dtb
-    initrd /uInitrd
-    append  earlycon=uart8250,mmio32,0xff130000 console=tty1 imgpart=UUID=${UUID_IMG} imgfile=/volumio_current.sqsh hwdevice=Rock64 bootpart=UUID=${UUID_BOOT} datapart=UUID=${UUID_DATA} bootconfig=/extlinux/extlinux.conf
+    fdt /rk3328-nanopi-neo3-rev02.dtb
+   initrd /uInitrd
+    append  earlycon=uart8250,mmio32,0xff130000 console=ttyS2,1500000 console=tty1 imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh hwdevice=nanopineo3 bootdev=mmcblk0
 "> /boot/extlinux/extlinux.conf
 
-echo "#!/bin/sh
-sysctl abi.cp15_barrier=2
-" > /usr/local/bin/rock64-init.sh
+echo "Fixing armv8 deprecated instruction emulation with armv7 rootfs"
+echo "abi.cp15_barrier=2" >> /etc/sysctl.conf
 
-chmod +x /usr/local/bin/rock64-init.sh
-chmod +x /usr/local/sbin/enable_dtoverlay
-
-echo "#!/bin/sh -e
-/usr/local/bin/rock64-init.sh
-exit 0" > /etc/rc.local
-
-echo "Installing additonal packages"
+echo "Installing additional packages"
 apt-get update
-apt-get -y install device-tree-compiler u-boot-tools liblircclient0 lirc
+apt-get -y install device-tree-compiler u-boot-tools  
 
 echo "Cleaning APT Cache and remove policy file"
 rm -f /var/lib/apt/lists/*archive*
@@ -76,8 +68,8 @@ fi
 rm /patch
 
 echo "Changing to 'modules=dep'"
-echo "(otherwise Odroid won't boot due to uInitrd 4MB limit)"
-sed -i "s/MODULES=most/MODULES=dep/g" /etc/initramfs-tools/initramfs.conf
+echo "(otherwise neo3 may not boot due to uInitrd 4MB limit)"
+sed -i "s/MODULES=most/MODULES=list/g" /etc/initramfs-tools/initramfs.conf
 
 echo "Installing winbind here, since it freezes networking"
 apt-get update

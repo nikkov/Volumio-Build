@@ -171,7 +171,6 @@ if [ -n "$BUILD" ]; then
   mount /sys "build/$BUILD/root/sys" -t sysfs
 
   echo 'Cloning Volumio Node Backend'
-  mkdir "build/$BUILD/root/volumio"
   if [ -n "$PATCH" ]; then
       echo "Cloning Volumio with all its history"
       git clone https://github.com/volumio/Volumio2.git build/$BUILD/root/volumio
@@ -181,7 +180,7 @@ if [ -n "$BUILD" ]; then
   echo "Pre-commit hooks"
   echo '#!/bin/sh
   # Pre-commit hook, uncomment when finished linting all codebase
-  #npm run lint-staged' > /volumio/.git/hooks/pre-commit
+  #npm run lint-staged' > "build/$BUILD/root/volumio/.git/hooks/pre-commit"
   echo 'Cloning Volumio UI'
   git clone --depth 1 -b dist --single-branch https://github.com/volumio/Volumio2-UI.git "build/$BUILD/root/volumio/http/www"
   echo 'Cloning Volumio3 UI'
@@ -358,9 +357,9 @@ case "$DEVICE" in
     check_os_release "armv7" "$VERSION" "$DEVICE"
     sh scripts/armbianimage.sh -v "$VERSION" -p "$PATCH" -d "$DEVICE"
     ;;
-  nanopineoplus2) echo 'Writing NanoPi-NEO+2 Image File'
+  nanopineo3) echo 'Writing NanoPi-NEO3 armv7 Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"
-    sh scripts/armbianimage.sh -v "$VERSION" -p "$PATCH" -d "$DEVICE"
+    sh scripts/nanopineo3image.sh -v "$VERSION" -p "$PATCH" -a armv7
     ;;
   nanopineo) echo 'Writing NanoPi-NEO Image File'
     check_os_release "armv7" "$VERSION" "$DEVICE"

@@ -67,7 +67,7 @@ touch /boot/start.elf
 mkdir /lib/modules
 
 
-KERNEL_VERSION="4.19.86"
+KERNEL_VERSION="4.19.118"
 
 case $KERNEL_VERSION in
     "4.4.9")
@@ -135,6 +135,17 @@ case $KERNEL_VERSION in
       KERNEL_COMMIT="b9ecbe8d0e3177afed08c54fc938938100a0b73f"
       FIRMWARE_COMMIT=$KERNEL_COMMIT
       ;;
+    "4.19.118")
+      KERNEL_REV="1311"
+      KERNEL_COMMIT="e1050e94821a70b2e4c72b318d6c6c968552e9a2"
+      FIRMWARE_COMMIT=$KERNEL_COMMIT
+      ;;
+    "5.4.51")
+      KERNEL_REV="1325"
+      KERNEL_COMMIT="8382ece2b30be0beb87cac7f3b36824f194d01e9"
+      FIRMWARE_COMMIT=$KERNEL_COMMIT
+      ;;
+
 esac
 
 # using rpi-update relevant to defined kernel version
@@ -202,7 +213,7 @@ hdmi_force_hotplug=1
 include userconfig.txt" >> /boot/config.txt
 
 echo "Writing cmdline.txt file"
-echo "splash quiet plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 console=serial0,115200 kgdboc=serial0,115200 console=tty1 imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh elevator=noop rootwait bootdelay=5 logo.nologo vt.global_cursor_default=0 loglevel=0" >> /boot/cmdline.txt
+echo "splash quiet plymouth.ignore-serial-consoles dwc_otg.fiq_enable=1 dwc_otg.fiq_fsm_enable=1 dwc_otg.fiq_fsm_mask=0xF dwc_otg.nak_holdoff=1 console=serial0,115200 kgdboc=serial0,115200 console=tty1 imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh elevator=noop rootwait bootdelay=5 logo.nologo vt.global_cursor_default=0 loglevel=0 snd-bcm2835.enable_compat_alsa=1 snd_bcm2835.enable_headphones=1" >> /boot/cmdline.txt
 
 echo "adding gpio & spi group and permissions"
 groupadd -f --system gpio
@@ -326,6 +337,13 @@ echo "Extracting TauDAC Modules and overlay"
 tar --strip-components 1 --exclude *.hash -xf rpi-volumio-"$KERNEL_VERSION"-taudac-modules.tar.gz
 rm rpi-volumio-"$KERNEL_VERSION"-taudac-modules.tar.gz
 echo "TauDAC Modules and overlay installed"
+
+echo "Getting BassOwl-HAT Module and overlay"
+wget -N https://github.com/Darmur/bassowl-hat/raw/master/driver/archives/modules-rpi-"$KERNEL_VERSION"-bassowl.tar.gz
+echo "Extracting BassOwl-HAT Module and overlay"
+tar --strip-components 1 --no-same-owner -xvf modules-rpi-"$KERNEL_VERSION"-bassowl.tar.gz
+rm modules-rpi-"$KERNEL_VERSION"-bassowl.tar.gz
+echo "BassOwl-HAT Module and overlay installed"
 
 echo "Getting Volumio driver"
 wget http://repo.volumio.org/Volumio2/Firmwares/ess-volumio/ess-volumio-$KERNEL_VERSION-v7+.tar.gz
