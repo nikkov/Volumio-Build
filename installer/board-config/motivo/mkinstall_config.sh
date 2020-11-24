@@ -4,10 +4,8 @@
 DEVICEBASE="motivo"
 BOARDFAMILY=${PLAYER}
 PLATFORMREPO="https://github.com/volumio/platform-motivo.git"
-PATCHREPO="https://github.com/volumio/motivo-patch"
-MOTIVOPATCH="motivo-patch"
 BUILD="armv7"
-NONSTANDARD_REPO=yes	# yes requires "non_standard_repo() function in make.sh 
+NONSTANDARD_REPO=no	# yes requires "non_standard_repo() function in make.sh 
 LBLBOOT="BOOT"
 LBLIMAGE="volumio"
 LBLDATA="volumio_data"
@@ -16,8 +14,8 @@ LBLDATA="volumio_data"
 # Partition Info
 BOOT_TYPE=msdos			# msdos or gpt   
 BOOT_START=21
-BOOT_END=64
-IMAGE_END=2500
+BOOT_END=84
+IMAGE_END=3500
 BOOT=/mnt/boot
 BOOTDELAY=
 BOOTDEV="mmcblk0"
@@ -45,34 +43,17 @@ RAMDISK_TYPE=image			# image or gzip (ramdisk image = uInitrd, gzip compressed =
 
 non_standard_repo()
 {
-   HAS_PLTDIR=no
-   if [ -d ${PLTDIR} ]; then
-      pushd ${PLTDIR}
-      if [ -d ${BOARDFAMILY} ]; then
-         HAS_PLTDIR=yes
-      fi
-      popd
-   fi
-   if [ $HAS_PLTDIR == no ]; then
-      # This should normally not happen, just handle it for safety
-      if [ -d ${PLTDIR} ]; then
-         rm -r ${PLTDIR}  
-	  fi
-      echo "[info] Clone platform files from repo"
-      git clone $PLATFORMREPO
-      echo "[info] Unpacking the platform files"
-      pushd $PLTDIR
-      tar xfJ ${BOARDFAMILY}.tar.xz
-      rm $BOARDFAMILY.tar.xz
-      popd
-   fi
+   :
+}
 
+fetch_bootpart_uuid()
+{
+   :
+}
 
-   if [ ! -d ${SRC/$MOTIVOPATCH} ]; then
-      echo " [info] Clone motivo patches"
-      git clone $PATCHREPO
-   fi
-
+is_dataquality_ok()
+{
+   return 0
 }
 
 write_device_files()
@@ -80,6 +61,9 @@ write_device_files()
    mkdir /mnt/volumio/rootfs/boot/dtb
    cp ${PLTDIR}/${BOARDFAMILY}/boot/Image $ROOTFSMNT/boot
    cp -R ${PLTDIR}/${BOARDFAMILY}/boot/dtb/* $ROOTFSMNT/boot/dtb
+   cp ${PLTDIR}/${BOARDFAMILY}/usr/bin/i2crw1 $ROOTFSMNT/usr/bin/i2crw1
+#  just to make sure it is executable
+   chmod a+x $ROOTFSMNT/usr/bin/i2crw1
 
    echo "[info] Creating boot.scr image"
    cp ${PLTDIR}/${BOARDFAMILY}/boot/boot.cmd /$ROOTFSMNT/boot
@@ -95,7 +79,7 @@ write_device_bootloader()
 write_boot_parameters()
 {
    echo "console=serial
-panel_model=feiyang
+panel_model=motivo
 kernel_filename=Image
 initrd_filename=uInitrd
 fdtfile=allwinner/sun50i-a64-motivo-baseboard.dtb
